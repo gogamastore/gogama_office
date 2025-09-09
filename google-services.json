@@ -1,0 +1,119 @@
+{
+  "project_info": {
+    "project_number": "954515661623",
+    "firebase_url": "https://orderflow-r7jsk-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "orderflow-r7jsk",
+    "storage_bucket": "orderflow-r7jsk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:954515661623:android:b8d6000e0456b43c2ef0b2",
+        "android_client_info": {
+          "package_name": "store.gogama.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "954515661623-07ct8dg1rnu6lj9j8fh2u66lmm42sdma.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUU71TYtfCIqTKwj1SHlbVhqqgbfEHx6U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "954515661623-07ct8dg1rnu6lj9j8fh2u66lmm42sdma.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "954515661623-le709fq2qo03tr8als2fjvqqeou03ccu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "store.gogama.office.gogamaOffice"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:954515661623:android:342d51d298b81f0b2ef0b2",
+        "android_client_info": {
+          "package_name": "store.gogama.office"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "954515661623-07ct8dg1rnu6lj9j8fh2u66lmm42sdma.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUU71TYtfCIqTKwj1SHlbVhqqgbfEHx6U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "954515661623-07ct8dg1rnu6lj9j8fh2u66lmm42sdma.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "954515661623-le709fq2qo03tr8als2fjvqqeou03ccu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "store.gogama.office.gogamaOffice"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:954515661623:android:6496cb37f7f3e1e52ef0b2",
+        "android_client_info": {
+          "package_name": "store.gogama.office.gogama_office"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "954515661623-07ct8dg1rnu6lj9j8fh2u66lmm42sdma.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUU71TYtfCIqTKwj1SHlbVhqqgbfEHx6U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "954515661623-07ct8dg1rnu6lj9j8fh2u66lmm42sdma.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "954515661623-le709fq2qo03tr8als2fjvqqeou03ccu.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "store.gogama.office.gogamaOffice"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
