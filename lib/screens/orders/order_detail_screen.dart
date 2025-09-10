@@ -1,277 +1,311 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/order.dart';
-import '../../models/order_product.dart';
 import '../../providers/order_provider.dart';
+import '../../utils/formatter.dart';
+import './edit_order_dialog.dart';
 
-class OrderDetailScreen extends ConsumerStatefulWidget {
+class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
 
   const OrderDetailScreen({super.key, required this.orderId});
 
   @override
-  ConsumerState<OrderDetailScreen> createState() => _OrderDetailScreenState();
-}
-
-class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
-  bool _isEditing = false;
-  List<OrderProduct> _editableProducts = [];
-  late TextEditingController _shippingFeeController;
-
-  @override
-  void initState() {
-    super.initState();
-    _shippingFeeController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _shippingFeeController.dispose();
-    super.dispose();
-  }
-
-  double _calculateNewTotal() {
-    final productsTotal = _editableProducts.fold<double>(
-        0.0, (sum, item) => sum + (item.price * item.quantity));
-    final shippingFee = double.tryParse(_shippingFeeController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
-    return productsTotal + shippingFee;
-  }
-
-  void _resetState(Order order) {
-    _editableProducts = List<OrderProduct>.from(
-        order.products.map((p) => OrderProduct.fromJson(p.toJson())));
-    _shippingFeeController.text =
-        NumberFormat.decimalPattern('id_ID').format(order.shippingFee ?? 0);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final orderAsync = ref.watch(orderDetailsProvider(widget.orderId));
-    final currencyFormatter =
-        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final orderAsync = ref.watch(orderDetailsProvider(orderId));
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: Text('Pesanan ${widget.orderId}', overflow: TextOverflow.ellipsis, maxLines: 1),
+        title: const Text('Detail Pesanan'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 1,
         actions: [
           orderAsync.when(
-            data: (order) => order != null
-                ? IconButton(
-                    icon: Icon(_isEditing ? Ionicons.close_circle_outline : Ionicons.create_outline),
-                    tooltip: _isEditing ? 'Batal' : 'Edit Pesanan',
-                    onPressed: () {
-                      final originalOrder = ref.read(orderDetailsProvider(widget.orderId)).value;
-                      if (originalOrder == null) return;
-
-                      setState(() {
-                        if (_isEditing) {
-                          // Exit edit mode, reset changes
-                          _resetState(originalOrder);
-                           _isEditing = false;
-                        } else {
-                          // Enter edit mode
-                           _resetState(originalOrder);
-                           _isEditing = true;
-                        }
-                      });
+            data: (order) {
+              if (order == null) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Ionicons.create_outline),
+                tooltip: 'Edit Pesanan',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext dialogContext) {
+                      return EditOrderDialog(order: order);
                     },
-                  )
-                : const SizedBox.shrink(),
+                  );
+                },
+              );
+            },
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
-          const SizedBox(width: 10),
         ],
       ),
       body: orderAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Gagal memuat: $err')),
         data: (order) {
           if (order == null) {
             return const Center(child: Text('Pesanan tidak ditemukan.'));
           }
-
-          // Initialize state for the first time
-          if (_editableProducts.isEmpty) {
-            _resetState(order);
-          }
-          
-          return Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  children: [
-                    if (_isEditing) _buildEditHeader(),
-                    ..._editableProducts.map((product) {
-                      final index = _editableProducts.indexOf(product);
-                      return _buildProductTile(product, index);
-                    }).toList(),
-                    const Divider(height: 24, thickness: 1),
-                     _buildShippingRow(),
-                  ],
-                ),
-              ),
-              _buildBottomSummary(currencyFormatter),
-            ],
-          );
+          return _buildOrderDetailsView(context, ref, order);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) =>
-            Center(child: Text('Gagal memuat pesanan: $err')),
       ),
     );
   }
 
-  Widget _buildEditHeader() {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Text('Edit Pesanan', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+  Widget _buildOrderDetailsView(BuildContext context, WidgetRef ref, Order order) {
+    return ListView(
+      padding: const EdgeInsets.all(12.0),
+      children: [
+        _buildInfoCard(order),
+        const SizedBox(height: 12),
+        _buildCustomerCard(order),
+        const SizedBox(height: 12),
+        _buildProductsCard(order),
+        const SizedBox(height: 12),
+        _buildPaymentInfoCard(context, order),
+        const SizedBox(height: 12),
+        _buildShippingInfoCard(order),
+        const SizedBox(height: 20),
+        _buildCancelButton(context, ref, order),
+      ],
     );
   }
 
-  Widget _buildProductTile(OrderProduct product, int index) {
-     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(product.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15), maxLines: 2, overflow: TextOverflow.ellipsis,),
-                const SizedBox(height: 4),
-                // PERBAIKAN DEFINITIF: Mengganti Colors.grey[700] dengan nilai konstan
-                Text(currencyFormatter.format(product.price), style: const TextStyle(color: Color(0xFF616161))),
-              ],
+  Widget _buildInfoCard(Order order) {
+    return _buildCard(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'No. Pesanan ${order.id}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          _isEditing 
-          ? Row(
-                children: [
-                    IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Ionicons.remove_circle, color: Colors.redAccent, size: 28),
-                        onPressed: () {
-                            if (product.quantity > 1) {
-                                setState(() => product.quantity--);
-                            }
-                        },
-                    ),
-                    SizedBox(
-                        width: 40,
-                        child: Text(product.quantity.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                    IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Ionicons.add_circle, color: Colors.green, size: 28),
-                        onPressed: () => setState(() => product.quantity++),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: Icon(Ionicons.trash_outline, color: Colors.grey[600], size: 24),
-                        onPressed: () => setState(() => _editableProducts.removeAt(index)),
-                    ),
-                ],
-            )
-          : Text('x ${product.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShippingRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Biaya Pengiriman', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-          _isEditing 
-            ? SizedBox(
-                width: 120,
-                child: TextFormField(
-                    controller: _shippingFeeController,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.right,
-                    decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8)
-                    ),
-                    onChanged: (value) => setState(() {}),
-                ),
-            )
-            : Text(NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(double.tryParse(_shippingFeeController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0)),
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildBottomSummary(NumberFormat currencyFormatter) {
-    return Container(
-      padding: const EdgeInsets.all(16).copyWith(bottom: MediaQuery.of(context).padding.bottom + 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[200]!))
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Total Baru', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
-                Text(
-                  currencyFormatter.format(_calculateNewTotal()),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF3498DB)),
-                ),
-              ],
-            ),
-          ),
-          if (_isEditing) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF27AE60),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () async {
-                   final orderService = ref.read(orderServiceProvider);
-                   await orderService.updateOrderDetails(
-                     widget.orderId,
-                     _editableProducts,
-                     double.tryParse(_shippingFeeController.text.replaceAll(RegExp(r'[^0--9]'), '')) ?? 0,
-                     _calculateNewTotal(),
-                   );
-                   ref.refresh(allOrdersProvider);
-                   ref.refresh(orderDetailsProvider(widget.orderId));
-                   setState(() {
-                     _isEditing = false;
-                   });
-                },
-                child: const Text('Simpan Perubahan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: getStatusColor(order.status).withOpacity(0.13),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                getStatusText(order.status),
+                style: TextStyle(fontWeight: FontWeight.bold, color: getStatusColor(order.status), fontSize: 12),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(order.date.toDate()),
+          style: const TextStyle(color: Colors.grey, fontSize: 13),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomerCard(Order order) {
+    return _buildCard(
+      children: [
+        const Text('Detail Pelanggan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Divider(height: 20),
+        _buildCustomerDetailRow(Ionicons.person_outline, order.customer),
+        _buildCustomerDetailRow(Ionicons.call_outline, order.customerPhone),
+        _buildCustomerDetailRow(Ionicons.location_outline, order.customerAddress, isLast: true),
+      ],
+    );
+  }
+
+  Widget _buildCustomerDetailRow(IconData icon, String text, {bool isLast = false}) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12.0),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.grey[600], size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProductsCard(Order order) {
+    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final subtotal = order.products.fold(0.0, (sum, p) => sum + (p.price * p.quantity));
+
+    return _buildCard(
+      children: [
+        const Text('Produk Dipesan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Divider(height: 20),
+        ...order.products.map((p) => Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('${p.quantity} x ${formatter.format(p.price)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(formatter.format(p.price * p.quantity), style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            )),
+        const Divider(height: 20),
+        _buildSummaryRow('Subtotal', subtotal),
+        const SizedBox(height: 8),
+        _buildSummaryRow('Ongkos Kirim', order.shippingFee ?? 0),
+        const SizedBox(height: 12),
+        // PERBAIKAN: Mengonversi `order.total` dari String ke num sebelum meneruskannya
+        _buildSummaryRow('Total', double.tryParse(order.total) ?? 0.0, isTotal: true),
+      ],
+    );
+  }
+
+  Widget _buildPaymentInfoCard(BuildContext context, Order order) {
+    return _buildCard(
+      children: [
+        const Text('Informasi Pembayaran', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Divider(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Status', style: TextStyle(fontSize: 15, color: Colors.grey)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: getPaymentStatusColor(order.paymentStatus).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                getPaymentStatusText(order.paymentStatus),
+                style: TextStyle(fontWeight: FontWeight.bold, color: getPaymentStatusColor(order.paymentStatus)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Text('Metode', style: TextStyle(fontSize: 15, color: Colors.grey)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                order.paymentMethod,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (order.paymentProofUrl != null && order.paymentProofUrl!.isNotEmpty)
+          Center(
+            child: ElevatedButton.icon(
+              icon: const Icon(Ionicons.receipt_outline, size: 18),
+              label: const Text('Lihat Bukti Pembayaran'),
+              onPressed: () async {
+                final Uri url = Uri.parse(order.paymentProofUrl!);
+                if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Gagal membuka URL.')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Theme.of(context).primaryColor,
+                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                elevation: 0,
+              ),
+            ),
+          )
+        else
+          const Center(
+            child: Text('Bukti pembayaran belum diunggah.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildShippingInfoCard(Order order) {
+    return _buildCard(
+      children: [
+        const Text('Info Pengiriman', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Divider(height: 20),
+        Row(
+          children: [
+            Icon(Ionicons.cube_outline, color: Colors.grey[600], size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(order.shippingMethod, style: const TextStyle(fontSize: 15))),
+          ],
+        )
+      ],
+    );
+  }
+  
+  Widget _buildSummaryRow(String title, num value, {bool isTotal = false}) {
+    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: TextStyle(fontSize: isTotal ? 18 : 15, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
+        Text(formatter.format(value), style: TextStyle(fontSize: isTotal ? 20 : 16, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
+      ],
+    );
+  }
+
+  Widget _buildCancelButton(BuildContext context, WidgetRef ref, Order order) {
+    if (order.status == 'pending' || order.status == 'processing') {
+      return ElevatedButton.icon(
+        icon: const Icon(Ionicons.close_circle_outline, color: Colors.white),
+        label: const Text('Batalkan Pesanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        onPressed: () {
+          // Logika untuk membatalkan pesanan
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.redAccent,
+          minimumSize: const Size(double.infinity, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildCard({required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }

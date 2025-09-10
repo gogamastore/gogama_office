@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Impor untuk inisialisasi lokal
 import 'firebase_options.dart';
 
 import 'providers/auth_provider.dart';
@@ -13,6 +14,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // PERBAIKAN: Inisialisasi data lokal untuk Bahasa Indonesia
+  await initializeDateFormatting('id_ID', null);
+  
   runApp(const ProviderScope(child: MyApp()));
 }
 

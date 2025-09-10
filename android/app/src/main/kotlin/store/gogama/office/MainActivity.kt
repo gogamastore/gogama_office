@@ -1,4 +1,4 @@
-package store.gogama.office.gogama_office
+package store.gogama.office
 
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity

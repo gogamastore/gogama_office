@@ -13,8 +13,9 @@ class OrdersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeFilter = ref.watch(orderFilterProvider);
-    final statusCountsAsync = ref.watch(orderStatusCountsProvider);
-    final allOrdersAsync = ref.watch(allOrdersProvider);
+    // PERBAIKAN: Langsung watch provider yang sudah disederhanakan.
+    final statusCounts = ref.watch(orderStatusCountsProvider);
+    final allOrdersAsync = ref.watch(orderProvider);
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -24,17 +25,12 @@ class OrdersScreen extends ConsumerWidget {
           children: [
             _buildHeader(textTheme),
             _buildSearchBar(),
-            statusCountsAsync.when(
-              data: (counts) => _buildFiltersContainer(context, ref, counts),
-              loading: () => const LinearProgressIndicator(),
-              error: (err, stack) => Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text('Gagal memuat filter', style: TextStyle(color: Colors.red)),
-              ),
-            ),
+            // PERBAIKAN: Widget filter sekarang menggunakan data langsung dari statusCounts.
+            // Kondisi loading/error dari `orderProvider` akan secara otomatis meng-handle ini.
+            _buildFiltersContainer(context, ref, statusCounts),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => ref.refresh(allOrdersProvider.future),
+                onRefresh: () => ref.read(orderProvider.notifier).refresh(),
                 child: allOrdersAsync.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Terjadi Kesalahan: $err')),
@@ -170,7 +166,6 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  // Diperbarui untuk bisa diklik
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final double totalValue = double.tryParse(order.total.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
@@ -182,7 +177,7 @@ class OrdersScreen extends ConsumerWidget {
           MaterialPageRoute(
             builder: (context) => OrderDetailScreen(orderId: order.id),
           ),
-        );
+        ).then((_) => ref.read(orderProvider.notifier).refresh()); // Refresh setelah kembali dari detail
       },
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -194,7 +189,6 @@ class OrdersScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Bagian Header Kartu
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -225,7 +219,6 @@ class OrdersScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              // Bagian Produk
               if (order.products.isNotEmpty)
               Padding(
                   padding: const EdgeInsets.only(left: 4.0), 
@@ -247,8 +240,6 @@ class OrdersScreen extends ConsumerWidget {
                   ),
               ),
               const SizedBox(height: 12),
-
-              // Bagian Footer Kartu (Pembayaran & Total)
               Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -276,7 +267,6 @@ class OrdersScreen extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(vertical: 12.0),
                 child: Divider(thickness: 1, height: 1),
               ),
-              // Bagian Tombol Aksi
               Row(
                 children: [
                   Expanded(
@@ -300,7 +290,7 @@ class OrdersScreen extends ConsumerWidget {
 
                         if (nextStatus.isNotEmpty) {
                           ref.read(orderServiceProvider).updateOrderStatus(order.id, nextStatus).then((_) {
-                            ref.refresh(allOrdersProvider);
+                            ref.read(orderProvider.notifier).refresh();
                           });
                         }
                       },

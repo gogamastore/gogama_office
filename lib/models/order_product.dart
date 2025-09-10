@@ -1,7 +1,7 @@
 class OrderProduct {
   final String productId;
   final String name;
-  int quantity;
+  final int quantity;
   final double price;
 
   OrderProduct({
@@ -20,7 +20,6 @@ class OrderProduct {
     );
   }
 
-  // Metode ini PENTING untuk menyimpan perubahan kembali ke Firestore
   Map<String, dynamic> toJson() {
     return {
       'productId': productId,
@@ -28,5 +27,20 @@ class OrderProduct {
       'quantity': quantity,
       'price': price,
     };
+  }
+
+  // PENAMBAHAN: Metode copyWith untuk imutabilitas
+  OrderProduct copyWith({
+    String? productId,
+    String? name,
+    int? quantity,
+    double? price,
+  }) {
+    return OrderProduct(
+      productId: productId ?? this.productId,
+      name: name ?? this.name,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+    );
   }
 }
