@@ -1,47 +1,60 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
+
 import '../models/dashboard_data.dart';
-import '../models/sales_data.dart';
 import '../models/order.dart';
+import '../models/sales_data.dart';
 
 class DashboardService {
   final _db = firestore.FirebaseFirestore.instance;
 
   Future<DashboardData> getDashboardData() async {
-    // Tanggal untuk filter pesanan (30 hari terakhir)
     final now = DateTime.now();
     final oneMonthAgo = now.subtract(const Duration(days: 30));
 
-    // Mengambil data pesanan yang sudah selesai (Delivered)
-    final deliveredOrdersQuery = _db.collection('orders').where('status', isEqualTo: 'Delivered');
-    final deliveredOrdersSnapshot = await deliveredOrdersQuery.get();
+    // PERBAIKAN: Mengambil pesanan dengan status 'Processing', 'Shipped', atau 'Delivered'
+    final relevantOrdersQuery = _db
+        .collection('orders')
+        .where('status', whereIn: ['Processing', 'Shipped', 'Delivered'])
+        .where('date', isGreaterThanOrEqualTo: oneMonthAgo);
+    final relevantOrdersSnapshot = await relevantOrdersQuery.get();
 
-    // Menghitung total pendapatan dan penjualan
     double totalRevenue = 0;
-    for (var doc in deliveredOrdersSnapshot.docs) {
+    for (var doc in relevantOrdersSnapshot.docs) {
       final data = doc.data();
-      final totalString = (data['total'] as String).replaceAll(RegExp(r'[^0-9]'), '');
-      totalRevenue += double.tryParse(totalString) ?? 0;
-    }
-    final int totalSales = deliveredOrdersSnapshot.docs.length;
+      final dynamic totalValue = data['total'];
+      double orderTotal = 0;
 
-    // Mengambil jumlah pelanggan baru (reseller)
-    final newCustomersSnapshot = await _db.collection('users').where('role', isEqualTo: 'reseller').get();
+      if (totalValue is String) {
+        final totalString = totalValue.replaceAll(RegExp(r'[^0-9]'), '');
+        orderTotal = double.tryParse(totalString) ?? 0.0;
+      } else if (totalValue is num) {
+        orderTotal = totalValue.toDouble();
+      }
+      totalRevenue += orderTotal;
+    }
+    final int totalSales = relevantOrdersSnapshot.docs.length;
+
+    // PERBAIKAN: Menggunakan nama koleksi 'user' (bukan 'users')
+    final newCustomersQuery = _db
+        .collection('user') // Sesuai struktur Anda
+        .where('role', isEqualTo: 'reseller')
+        .where('createdAt', isGreaterThanOrEqualTo: oneMonthAgo);
+    final newCustomersSnapshot = await newCustomersQuery.get();
     final int newCustomers = newCustomersSnapshot.docs.length;
 
-    // Mengambil total produk dan produk stok menipis
     final productsSnapshot = await _db.collection('products').get();
     final int totalProducts = productsSnapshot.docs.length;
 
     int lowStockProducts = 0;
     for (var doc in productsSnapshot.docs) {
       final data = doc.data();
-      if ((data['stock'] as num) <= 5) {
+      if ((data['stock'] as num? ?? 0) <= 5) {
         lowStockProducts++;
       }
     }
 
-    // Mengambil 5 pesanan terbaru
-    final recentOrdersSnapshot = await _db.collection('orders')
+    final recentOrdersSnapshot = await _db
+        .collection('orders')
         .orderBy('date', descending: true)
         .limit(5)
         .get();
@@ -60,8 +73,7 @@ class DashboardService {
   }
 
   Future<List<SalesData>> getSalesAnalytics() async {
-    // Untuk menyederhanakan, kita akan membuat data mock yang mencerminkan
-    // logika dari versi React Native Anda
+    // Data mock untuk analitik penjualan
     return [
       SalesData(label: 'Jul', value: 2500000),
       SalesData(label: 'Agt', value: 12500000),

@@ -36,8 +36,22 @@ class Order {
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    // Ambil nested map dengan aman, sekarang dinamai customerDetails
     Map<String, dynamic> customerDetails = data['customerDetails'] as Map<String, dynamic>? ?? {};
+
+    // --- PERBAIKAN LOGIKA UNTUK MENANGANI TIPE DATA TOTAL YANG TIDAK KONSISTEN ---
+    dynamic totalValue = data['total'];
+    String totalString;
+    if (totalValue is num) {
+      // Jika datanya Angka (misal: 99000), ubah menjadi String
+      totalString = totalValue.toString();
+    } else if (totalValue is String) {
+      // Jika datanya sudah String, langsung gunakan
+      totalString = totalValue;
+    } else {
+      // Jika datanya null atau tipe lain, beri nilai default '0'
+      totalString = '0';
+    }
+    // --- AKHIR PERBAIKAN ---
 
     return Order(
       id: doc.id,
@@ -46,10 +60,8 @@ class Order {
       customerAddress: customerDetails['address'] ?? '-',
       date: data['date'] ?? Timestamp.now(),
       status: data['status']?.toLowerCase() ?? 'pending',
-      total: data['total'] ?? 'Rp 0',
+      total: totalString, // Gunakan String yang sudah aman dan bersih
       
-      // --- PERBAIKAN KRUSIAL DI SINI ---
-      // Mengambil data dari dalam map 'customerdetails', bukan dari luar
       paymentMethod: data['paymentMethod'] ?? 'N/A',
       paymentStatus: data['paymentStatus']?.toLowerCase() ?? 'unpaid',
       paymentProofUrl: data['paymentProofUrl'],
