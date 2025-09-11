@@ -7,7 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/formatter.dart';
-import './edit_order_dialog.dart';
+// HAPUS DIALOG LAMA, GUNAKAN HALAMAN BARU
+import './edit_order_screen.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -32,12 +33,13 @@ class OrderDetailScreen extends ConsumerWidget {
               return IconButton(
                 icon: const Icon(Ionicons.create_outline),
                 tooltip: 'Edit Pesanan',
+                // --- PERUBAHAN UTAMA DI SINI ---
                 onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext dialogContext) {
-                      return EditOrderDialog(order: order);
-                    },
+                  // Ganti showDialog menjadi Navigator.push
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => EditOrderScreen(order: order),
+                    ),
                   );
                 },
               );
@@ -172,7 +174,6 @@ class OrderDetailScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         _buildSummaryRow('Ongkos Kirim', order.shippingFee ?? 0),
         const SizedBox(height: 12),
-        // PERBAIKAN: Mengonversi `order.total` dari String ke num sebelum meneruskannya
         _buildSummaryRow('Total', double.tryParse(order.total) ?? 0.0, isTotal: true),
       ],
     );

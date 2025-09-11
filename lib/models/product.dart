@@ -31,6 +31,33 @@ class Product {
     this.purchasePrice,
   });
 
+  // Serialisasi: Mengubah objek Product menjadi Map
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'price': price,
+      'stock': stock,
+      'sku': sku,
+      'image': image,
+      'purchasePrice': purchasePrice,
+    };
+  }
+
+  // Deserialisasi: Membuat objek Product dari Map
+  factory Product.fromMap(Map<String, dynamic> map) {
+    return Product(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      price: parsePrice(map['price']),
+      stock: (map['stock'] as num?)?.toInt() ?? 0,
+      sku: map['sku']?.toString(),
+      image: map['image'] as String?,
+      purchasePrice: parsePrice(map['purchasePrice']),
+    );
+  }
+
+
   factory Product.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Product(
@@ -38,8 +65,6 @@ class Product {
       name: data['name'] ?? '',
       price: parsePrice(data['price']),
       stock: (data['stock'] as num?)?.toInt() ?? 0,
-      // --- PERBAIKAN FINAL: Ubah tipe data SKU apa pun menjadi String ---
-      // Ini akan menangani angka (int) maupun teks (String) dengan aman.
       sku: data['sku']?.toString(),
       image: data['image'] as String?,
       purchasePrice: parsePrice(data['purchasePrice']),

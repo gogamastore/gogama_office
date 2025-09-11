@@ -10,8 +10,9 @@ import '../../models/product.dart';
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
+  // --- FIX: Jadikan createState privat agar cocok dengan _ProductsScreenState ---
   @override
-  _ProductsScreenState createState() => _ProductsScreenState();
+  ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {

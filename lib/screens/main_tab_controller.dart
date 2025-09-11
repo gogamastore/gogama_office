@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'orders/orders_screen.dart'; // Import OrdersScreen
 import 'products/products_screen.dart';
+import 'purchases/purchases_screen.dart'; // Import PurchasesScreen
 
 class MainTabController extends ConsumerStatefulWidget {
   const MainTabController({super.key});
@@ -19,7 +20,7 @@ class _MainTabControllerState extends ConsumerState<MainTabController> {
     const DashboardScreen(),
     const OrdersScreen(), // Ganti placeholder dengan OrdersScreen
     const ProductsScreen(),
-    const Text('Purchases Screen'),
+    const PurchasesScreen(), // Ganti placeholder dengan PurchasesScreen
     const Text('Profile Screen'),
   ];
 
