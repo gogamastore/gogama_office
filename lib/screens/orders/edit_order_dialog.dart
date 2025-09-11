@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +7,7 @@ import 'package:ionicons/ionicons.dart';
 import '../../models/order.dart';
 import '../../models/order_product.dart';
 import '../../providers/order_provider.dart';
+import './add_product_to_order_dialog.dart';
 
 class EditOrderDialog extends ConsumerStatefulWidget {
   final Order order;
@@ -17,6 +19,7 @@ class EditOrderDialog extends ConsumerStatefulWidget {
 }
 
 class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
+  // Data di sini sudah dijamin bersih oleh model `OrderProduct.fromJson`
   late List<OrderProduct> _products;
   late TextEditingController _shippingFeeController;
   late double _subtotal;
@@ -25,11 +28,13 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
   @override
   void initState() {
     super.initState();
-    _products = List<OrderProduct>.from(widget.order.products.map((p) => OrderProduct.fromJson(p.toJson())));
+    // Cukup salin daftar produk. Model sudah membersihkan data saat dibaca.
+    _products = List<OrderProduct>.from(widget.order.products);
     _shippingFeeController = TextEditingController(text: widget.order.shippingFee?.toStringAsFixed(0) ?? '0');
     _calculateTotals();
   }
 
+  // Logika kalkulasi kembali sederhana karena data sudah dijamin bersih.
   void _calculateTotals() {
     _subtotal = _products.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
     final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
@@ -54,14 +59,30 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
     });
   }
 
+  void _showAddProductDialog() async {
+    final List<OrderProduct>? newProducts = await showDialog(
+      context: context,
+      builder: (context) => AddProductToOrderDialog(existingProducts: _products),
+    );
+
+    if (newProducts != null && newProducts.isNotEmpty) {
+      setState(() {
+        // Produk baru yang ditambahkan juga sudah dijamin bersih oleh modelnya.
+        _products.addAll(newProducts);
+        _calculateTotals();
+      });
+    }
+  }
+
   void _saveChanges() async {
     final newShippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
-    // PERBAIKAN: Kirim _total (double), bukan string yang diformat
+
+    // Tidak perlu lagi pembersihan manual. Data sudah konsisten.
     final success = await ref.read(orderProvider.notifier).updateOrder(
       widget.order.id,
-      _products,
+      _products, // Langsung kirim daftar yang sudah bersih sejak awal.
       newShippingFee,
-      _total, // Kirim nilai double
+      _total,
     );
 
     if (success && mounted) {
@@ -104,7 +125,16 @@ class _EditOrderDialogState extends ConsumerState<EditOrderDialog> {
                 ),
               ),
             ),
-            const Divider(height: 32),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _showAddProductDialog,
+                icon: const Icon(Ionicons.add),
+                label: const Text('Tambah Produk Baru'),
+              ),
+            ),
+            const Divider(height: 24),
             _buildTotalsSection(currencyFormatter),
           ],
         ),

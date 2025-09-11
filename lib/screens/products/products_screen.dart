@@ -1,4 +1,4 @@
-// lib/screens/products/products_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -6,12 +6,21 @@ import 'package:intl/intl.dart';
 import '../../providers/product_provider.dart';
 import '../../models/product.dart';
 
-class ProductsScreen extends ConsumerWidget {
+// --- UBAH MENJADI CONSUMER STATEFUL WIDGET ---
+class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(productsProvider);
+  _ProductsScreenState createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  // --- TAMBAHKAN STATE UNTUK PENCARIAN ---
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final productsAsync = ref.watch(allProductsProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -20,14 +29,42 @@ class ProductsScreen extends ConsumerWidget {
           children: [
             _buildHeader(),
             _buildActionBar(),
-            _buildSearchBar(),
+            // --- BERI FUNGSI PADA KOTAK PENCARIAN ---
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: TextField(
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Cari nama atau SKU produk...',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF7F8C8D)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+              ),
+            ),
             Expanded(
               child: productsAsync.when(
                 data: (products) {
+                  // --- LOGIKA FILTER PENCARIAN ---
+                  final filteredProducts = products.where((product) {
+                    final nameLower = product.name.toLowerCase();
+                    final skuLower = (product.sku ?? '').toLowerCase();
+                    final searchLower = _searchQuery.toLowerCase();
+                    return nameLower.contains(searchLower) || skuLower.contains(searchLower);
+                  }).toList();
+
+                  if (filteredProducts.isEmpty) {
+                    return const Center(child: Text('Produk tidak ditemukan.'));
+                  }
                   return ListView.builder(
-                    itemCount: products.length,
+                    itemCount: filteredProducts.length,
                     itemBuilder: (context, index) {
-                      final product = products[index];
+                      final product = filteredProducts[index];
                       return _buildProductItem(context, product);
                     },
                   );
@@ -42,7 +79,8 @@ class ProductsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader() {
+  // ... (widget buildHeader dan buildActionBar tetap sama) ...
+    Widget _buildHeader() {
     return const Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
@@ -65,10 +103,11 @@ class ProductsScreen extends ConsumerWidget {
   Widget _buildActionBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        spacing: 8.0,
+        runSpacing: 8.0,
+        alignment: WrapAlignment.end,
         children: [
-          // Tombol Impor
           ElevatedButton.icon(
             onPressed: () { /* TODO: Implement Import Modal */ },
             icon: const Icon(Icons.download, size: 16),
@@ -78,7 +117,6 @@ class ProductsScreen extends ConsumerWidget {
               foregroundColor: const Color(0xFF5DADE2),
             ),
           ),
-          // Tombol Manajemen Stok
           ElevatedButton.icon(
             onPressed: () { /* TODO: Navigate to Stock Management Screen */ },
             icon: const Icon(Icons.archive, size: 16),
@@ -88,7 +126,6 @@ class ProductsScreen extends ConsumerWidget {
               foregroundColor: const Color(0xFF5DADE2),
             ),
           ),
-          // Tombol Tambah Produk
           ElevatedButton.icon(
             onPressed: () { /* TODO: Open Add Product Modal */ },
             icon: const Icon(Icons.add, size: 16),
@@ -103,20 +140,6 @@ class ProductsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: 'Cari produk...',
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF7F8C8D)),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-      ),
-    );
-  }
 
   Widget _buildProductItem(BuildContext context, Product product) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -129,7 +152,6 @@ class ProductsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            // Gambar Produk
             ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
               child: (product.image != null && product.image!.isNotEmpty)
@@ -138,25 +160,7 @@ class ProductsScreen extends ConsumerWidget {
                       width: 50,
                       height: 50,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: 50,
-                          height: 50,
-                          color: const Color(0xFFE0E6ED),
-                          child: const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          width: 50,
-                          height: 50,
-                          color: const Color(0xFFE0E6ED),
-                          child: const Icon(Icons.broken_image, color: Color(0xFFBDC3C7)),
-                        );
-                      },
+                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
                     )
                   : Container(
                       width: 50,
@@ -166,48 +170,48 @@ class ProductsScreen extends ConsumerWidget {
                     ),
             ),
             const SizedBox(width: 12),
-            // Informasi Produk
-            Flexible(
-              child: Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50)),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50)),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (product.sku != null && product.sku!.isNotEmpty)
                     Text(
                       'SKU: ${product.sku}',
                       style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
-            // Stok dan Harga
+            const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Stok: ${product.stock}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50)),
+                  currencyFormatter.format(product.price),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
                 ),
+                const SizedBox(height: 2),
+                if (product.purchasePrice != null && product.purchasePrice! > 0)
+                  Text(
+                    'Beli: ${currencyFormatter.format(product.purchasePrice)} ',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
+                  ),
                 const SizedBox(height: 4),
                 Text(
-                  'Harga Beli: ${currencyFormatter.format(product.purchasePrice)}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
-                ),
-                Text(
-                  'Harga Jual: ${product.price}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50)),
+                  'Stok: ${product.stock}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF3498DB), fontWeight: FontWeight.w500),
                 ),
               ],
             ),
-            // Tombol Aksi
             IconButton(
-              icon: const Icon(Icons.edit, color: Color(0xFF5DADE2)),
+              icon: const Icon(Icons.edit_note_outlined, color: Color(0xFF5DADE2)),
               onPressed: () { /* TODO: Open Edit Product Modal */ },
             ),
           ],

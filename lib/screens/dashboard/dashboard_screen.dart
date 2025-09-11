@@ -72,17 +72,22 @@ class DashboardScreen extends ConsumerWidget {
   Widget _buildHeader(String userName, WidgetRef ref) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Grosir Gallery Makassar', style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D))),
-            const SizedBox(height: 4),
-            Text(
-              userName,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
-            ),
-          ],
+        // FIX: Wrap the column in an Expanded widget to prevent horizontal overflow.
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Grosir Gallery Makassar', style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D))),
+              const SizedBox(height: 4),
+              Text(
+                userName,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+                overflow: TextOverflow.ellipsis, // Prevent long usernames from overflowing
+              ),
+            ],
+          ),
         ),
         IconButton(
           icon: const Icon(Icons.logout, color: Color(0xFF5DADE2)),
@@ -183,13 +188,17 @@ class DashboardScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           SizedBox(
             height: 150,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: salesData.map((item) {
-                final height = maxValue > 0 ? (item.value / maxValue) * 120 : 20.0;
-                return _buildChartColumn(item.label, height, item.value);
-              }).toList(),
+            // FIX: Wrap the Row in a SingleChildScrollView to make the chart scrollable horizontally.
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: salesData.map((item) {
+                  // FIX: Reduce the bar height multiplier to prevent vertical overflow.
+                  final height = maxValue > 0 ? (item.value / maxValue) * 100 : 10.0;
+                  return _buildChartColumn(item.label, height, item.value);
+                }).toList(),
+              ),
             ),
           ),
         ],
@@ -200,13 +209,13 @@ class DashboardScreen extends ConsumerWidget {
   Widget _buildChartColumn(String label, double height, int value) {
     final formattedValue = NumberFormat.compact(locale: 'id_ID').format(value);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0), // Increased padding for better spacing
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (value > 0)
             Text(formattedValue, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF5DADE2))),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Container(
             width: 30,
             height: height,
@@ -240,9 +249,9 @@ class DashboardScreen extends ConsumerWidget {
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text('Customer', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
-              Expanded(child: Text('Amount', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
-              Expanded(child: Text('Status', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
+              Expanded(flex: 3, child: Text('Customer', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
+              Expanded(flex: 2, child: Text('Amount', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
+              Expanded(flex: 2, child: Text('Status', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
             ],
           ),
           const Divider(color: Color(0xFFE0E6ED)),
@@ -259,18 +268,21 @@ class DashboardScreen extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
+            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(order.customer, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50))),
+                Text(order.customer, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50)), overflow: TextOverflow.ellipsis,),
                 Text(DateFormat('dd/MM/yy HH:mm').format(order.date.toDate()), style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D))),
               ],
             ),
           ),
           Expanded(
+            flex: 2,
             child: Text(order.total, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50))),
           ),
           Expanded(
+            flex: 2,
             child: Align(
               alignment: Alignment.centerRight,
               child: Container(
@@ -315,30 +327,38 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildSuccessMessage() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      // The margin was causing issues on smaller screens, let's remove horizontal margin from here
+      // and let the parent padding handle it.
+      margin: const EdgeInsets.symmetric(vertical: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), spreadRadius: 1, blurRadius: 2)],
       ),
-      child: const Row(
+      // FIX: Restructure the Row to be more flexible.
+      child: Row(
         children: [
-          Icon(Icons.check_circle, color: Color(0xFF27AE60)),
-          SizedBox(width: 12),
-          Text(
-            'Data Terbaru!',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF27AE60),
-            ),
-          ),
-          SizedBox(width: 8),
+          const Icon(Icons.check_circle, color: Color(0xFF27AE60)),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Disinkronkan dari Firestore',
-              style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Data Terbaru!',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF27AE60),
+                  ),
+                ),
+                Text(
+                  'Disinkronkan dari Firestore',
+                  style: const TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+                  overflow: TextOverflow.ellipsis, // Add overflow handling
+                ),
+              ],
             ),
           ),
         ],

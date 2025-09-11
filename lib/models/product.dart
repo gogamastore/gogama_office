@@ -1,46 +1,48 @@
-// lib/models/product.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+// Fungsi utilitas untuk mengubah berbagai format harga menjadi double
+double parsePrice(dynamic price) {
+  if (price is double) return price;
+  if (price is int) return price.toDouble();
+  if (price is String) {
+    final sanitized = price.replaceAll(RegExp(r'[^0-9]'), '');
+    return double.tryParse(sanitized) ?? 0.0;
+  }
+  return 0.0;
+}
 
 class Product {
   final String id;
   final String name;
-  final String sku;
-  final String category;
-  final String price;
-  final double purchasePrice;
+  final double price; // Harga Jual - DIJAMIN double
   final int stock;
+  final String? sku; // DIJAMIN String atau null
   final String? image;
-  final String? description;
-  final Timestamp? createdAt;
+  final double? purchasePrice; // Harga Beli - DIJAMIN double
 
   Product({
     required this.id,
     required this.name,
-    required this.sku,
-    required this.category,
     required this.price,
-    required this.purchasePrice,
     required this.stock,
+    this.sku,
     this.image,
-    this.description,
-    this.createdAt,
+    this.purchasePrice,
   });
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Product(
       id: doc.id,
       name: data['name'] ?? '',
-      // Perbaikan: Pastikan `sku` selalu diperlakukan sebagai String
-      sku: (data['sku'] ?? '').toString(),
-      category: data['category'] ?? '',
-      // Perbaikan: Pastikan `price` selalu diperlakukan sebagai String
-      price: (data['price'] ?? '').toString(),
-      purchasePrice: (data['purchasePrice'] as num?)?.toDouble() ?? 0.0,
+      price: parsePrice(data['price']),
       stock: (data['stock'] as num?)?.toInt() ?? 0,
-      image: data['image'],
-      description: data['description'],
-      createdAt: data['createdAt'] as Timestamp?,
+      // --- PERBAIKAN FINAL: Ubah tipe data SKU apa pun menjadi String ---
+      // Ini akan menangani angka (int) maupun teks (String) dengan aman.
+      sku: data['sku']?.toString(),
+      image: data['image'] as String?,
+      purchasePrice: parsePrice(data['purchasePrice']),
     );
   }
 }
