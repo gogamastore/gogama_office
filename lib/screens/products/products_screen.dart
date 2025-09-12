@@ -5,18 +5,16 @@ import 'package:intl/intl.dart';
 
 import '../../providers/product_provider.dart';
 import '../../models/product.dart';
+import 'product_detail_screen.dart'; // Impor halaman detail yang baru
 
-// --- UBAH MENJADI CONSUMER STATEFUL WIDGET ---
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
-  // --- FIX: Jadikan createState privat agar cocok dengan _ProductsScreenState ---
   @override
   ConsumerState<ProductsScreen> createState() => _ProductsScreenState();
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
-  // --- TAMBAHKAN STATE UNTUK PENCARIAN ---
   String _searchQuery = '';
 
   @override
@@ -30,7 +28,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           children: [
             _buildHeader(),
             _buildActionBar(),
-            // --- BERI FUNGSI PADA KOTAK PENCARIAN ---
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               child: TextField(
@@ -51,7 +48,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             Expanded(
               child: productsAsync.when(
                 data: (products) {
-                  // --- LOGIKA FILTER PENCARIAN ---
                   final filteredProducts = products.where((product) {
                     final nameLower = product.name.toLowerCase();
                     final skuLower = (product.sku ?? '').toLowerCase();
@@ -80,8 +76,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
-  // ... (widget buildHeader dan buildActionBar tetap sama) ...
-    Widget _buildHeader() {
+  Widget _buildHeader() {
     return const Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
@@ -130,7 +125,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
           ElevatedButton.icon(
             onPressed: () { /* TODO: Open Add Product Modal */ },
             icon: const Icon(Icons.add, size: 16),
-            label: const Text('Tambah Produk'),
+            label: const Text('Tambah'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF5DADE2),
               foregroundColor: Colors.white,
@@ -141,7 +136,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     );
   }
 
-
   Widget _buildProductItem(BuildContext context, Product product) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
@@ -149,73 +143,81 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: (product.image != null && product.image!.isNotEmpty)
-                  ? Image.network(
-                      product.image!,
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
-                    )
-                  : Container(
-                      width: 50,
-                      height: 50,
-                      color: const Color(0xFFE0E6ED),
-                      child: const Icon(Icons.image_not_supported, color: Color(0xFFBDC3C7)),
-                    ),
+      child: InkWell( // --- FIX: Bungkus dengan InkWell untuk membuatnya dapat diklik ---
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          // --- FIX: Arahkan ke halaman detail produk ---
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ProductDetailScreen(product: product),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: (product.image != null && product.image!.isNotEmpty)
+                    ? Image.network(
+                        product.image!,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                      )
+                    : Container(
+                        width: 50,
+                        height: 50,
+                        color: const Color(0xFFE0E6ED),
+                        child: const Icon(Icons.image_not_supported, color: Color(0xFFBDC3C7)),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (product.sku != null && product.sku!.isNotEmpty)
+                      Text(
+                        'SKU: ${product.sku}',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    product.name,
-                    style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50)),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    currencyFormatter.format(product.price),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
                   ),
-                  if (product.sku != null && product.sku!.isNotEmpty)
+                  const SizedBox(height: 2),
+                  if (product.purchasePrice != null && product.purchasePrice! > 0)
                     Text(
-                      'SKU: ${product.sku}',
+                      'Beli: ${currencyFormatter.format(product.purchasePrice)} ',
                       style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
                     ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Stok: ${product.stock}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF3498DB), fontWeight: FontWeight.w500),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  currencyFormatter.format(product.price),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
-                ),
-                const SizedBox(height: 2),
-                if (product.purchasePrice != null && product.purchasePrice! > 0)
-                  Text(
-                    'Beli: ${currencyFormatter.format(product.purchasePrice)} ',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
-                  ),
-                const SizedBox(height: 4),
-                Text(
-                  'Stok: ${product.stock}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF3498DB), fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit_note_outlined, color: Color(0xFF5DADE2)),
-              onPressed: () { /* TODO: Open Edit Product Modal */ },
-            ),
-          ],
+              // --- FIX: Hapus IconButton edit dari sini ---
+            ],
+          ),
         ),
       ),
     );

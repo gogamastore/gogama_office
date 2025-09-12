@@ -15,11 +15,13 @@ double parsePrice(dynamic price) {
 class Product {
   final String id;
   final String name;
-  final double price; // Harga Jual - DIJAMIN double
+  final double price; // Harga Jual
   final int stock;
-  final String? sku; // DIJAMIN String atau null
+  final String? sku;
   final String? image;
-  final double? purchasePrice; // Harga Beli - DIJAMIN double
+  final double? purchasePrice; // Harga Beli
+  final String? description;
+  final String? categoryId; // <-- FIELD BARU DITAMBAHKAN
 
   Product({
     required this.id,
@@ -29,6 +31,8 @@ class Product {
     this.sku,
     this.image,
     this.purchasePrice,
+    this.description,
+    this.categoryId, // <-- Diperbarui di konstruktor
   });
 
   // Serialisasi: Mengubah objek Product menjadi Map
@@ -41,6 +45,8 @@ class Product {
       'sku': sku,
       'image': image,
       'purchasePrice': purchasePrice,
+      'description': description,
+      'categoryId': categoryId, // <-- Diperbarui untuk serialisasi
     };
   }
 
@@ -54,10 +60,12 @@ class Product {
       sku: map['sku']?.toString(),
       image: map['image'] as String?,
       purchasePrice: parsePrice(map['purchasePrice']),
+      description: map['description'] as String?,
+      categoryId: map['categoryId'] as String?, // <-- Diperbarui untuk deserialisasi
     );
   }
 
-
+  // Deserialisasi dari Firestore
   factory Product.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Product(
@@ -68,6 +76,33 @@ class Product {
       sku: data['sku']?.toString(),
       image: data['image'] as String?,
       purchasePrice: parsePrice(data['purchasePrice']),
+      description: data['description'] as String?,
+      categoryId: data['categoryId'] as String?, // <-- Diperbarui untuk deserialisasi
+    );
+  }
+
+  // Metode CopyWith untuk membuat salinan objek dengan perubahan
+  Product copyWith({
+    String? id,
+    String? name,
+    double? price,
+    int? stock,
+    String? sku,
+    String? image,
+    double? purchasePrice,
+    String? description,
+    String? categoryId,
+  }) {
+    return Product(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      price: price ?? this.price,
+      stock: stock ?? this.stock,
+      sku: sku ?? this.sku,
+      image: image ?? this.image,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
+      description: description ?? this.description,
+      categoryId: categoryId ?? this.categoryId,
     );
   }
 }

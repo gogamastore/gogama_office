@@ -337,15 +337,15 @@ class DashboardScreen extends ConsumerWidget {
         boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), spreadRadius: 1, blurRadius: 2)],
       ),
       // FIX: Restructure the Row to be more flexible.
-      child: Row(
+      child: const Row(
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF27AE60)),
-          const SizedBox(width: 12),
+          Icon(Icons.check_circle, color: Color(0xFF27AE60)),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Data Terbaru!',
                   style: TextStyle(
                     fontSize: 14,
@@ -355,7 +355,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 Text(
                   'Disinkronkan dari Firestore',
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
                   overflow: TextOverflow.ellipsis, // Add overflow handling
                 ),
               ],

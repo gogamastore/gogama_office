@@ -183,7 +183,7 @@ class OrdersScreen extends ConsumerWidget {
         margin: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
-        shadowColor: Colors.black.withOpacity(0.1),
+        shadowColor: Colors.black.withAlpha(25), // PERBAIKAN: Menggunakan withAlpha (10% dari 255)
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -208,7 +208,7 @@ class OrdersScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(order.status).withOpacity(0.13),
+                      color: _getStatusColor(order.status).withAlpha(33), // PERBAIKAN: Menggunakan withAlpha (sekitar 13% dari 255)
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

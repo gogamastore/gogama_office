@@ -24,7 +24,7 @@ class PurchasesScreen extends ConsumerStatefulWidget {
 class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
   String _searchQuery = '';
   int _currentPage = 0;
-  final int _itemsPerPage = 10; // Mengurangi item per halaman agar lebih ringkas
+  final int _itemsPerPage = 10;
 
   void _showAddToCartDialog(Product product) {
     showDialog(
@@ -59,9 +59,13 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
                   ],
                 );
               } else {
+                // --- Bungkus dengan Scaffold untuk FAB ---
                 return Scaffold(
-                  body: _buildProductList(),
+                  // --- FIX: Pindahkan posisi FAB ke kiri ---
+                  floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
                   floatingActionButton: _buildCartFAB(),
+                  body: _buildProductList(),
+                  backgroundColor: const Color(0xFFF8F9FA), // Samakan BG
                 );
               }
             },
@@ -86,7 +90,7 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
               children: [
                 const Text('Daftar Produk', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
                 const SizedBox(height: 4),
-                const Text('Pilih produk untuk ditambahkan ke keranjang pembelian.', style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D))),
+                const Text('Ketuk produk untuk menambahkannya ke keranjang pembelian.', style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D))),
                 const SizedBox(height: 16),
                 TextField(
                   onChanged: (value) {
@@ -126,13 +130,11 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
                 return Column(
                   children: [
                     Expanded(
-                      // Menggunakan ListView.builder tanpa pemisah karena Card sudah cukup
                       child: ListView.builder(
-                        padding: const EdgeInsets.only(top: 4), // Sedikit jarak dari atas
+                        padding: const EdgeInsets.only(top: 4),
                         itemCount: paginatedProducts.length,
                         itemBuilder: (context, index) {
                           final product = paginatedProducts[index];
-                          // --- MENGGUNAKAN WIDGET BARU ---
                           return _buildProductItem(context, product);
                         },
                       ),
@@ -150,63 +152,69 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
     );
   }
 
-  // --- WIDGET BARU: Mengadopsi gaya dari ProductManagementScreen ---
   Widget _buildProductItem(BuildContext context, Product product) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-    return Card(
-      // Mengurangi margin horizontal karena sudah ada padding di parent
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: (product.image != null && product.image!.isNotEmpty)
-                  ? Image.network(
-                      product.image!,
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
-                    )
-                  : Container(
-                      width: 50,
-                      height: 50,
-                      color: const Color(0xFFE0E6ED),
-                      child: const Icon(Icons.image_not_supported, color: Color(0xFFBDC3C7)),
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50), fontSize: 15),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (product.sku != null && product.sku!.isNotEmpty)
-                    Text(
-                      'SKU: ${product.sku}',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
-                    ),
-                ],
+    // --- FIX: Bungkus Card dengan InkWell agar bisa diklik ---
+    return InkWell(
+      onTap: () => _showAddToCartDialog(product), // Panggil dialog saat diketuk
+      borderRadius: BorderRadius.circular(12), // Efek ripple mengikuti bentuk kartu
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200, width: 1),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: (product.image != null && product.image!.isNotEmpty)
+                    ? Image.network(
+                        product.image!,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                      )
+                    : Container(
+                        width: 50,
+                        height: 50,
+                        color: const Color(0xFFE0E6ED),
+                        child: const Icon(Icons.image_not_supported, color: Color(0xFFBDC3C7)),
+                      ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center, // Pusatkan secara vertikal
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF2C3E50), fontSize: 15),
+                      maxLines: 2, // Biarkan 2 baris agar tidak terlalu panjang
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (product.sku != null && product.sku!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2.0),
+                        child: Text(
+                          'SKU: ${product.sku}',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   Text(
                     'Stok: ${product.stock}',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF3498DB), fontWeight: FontWeight.w500),
@@ -214,35 +222,19 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
                   const SizedBox(height: 4),
                   if (product.purchasePrice != null && product.purchasePrice! > 0)
                     Text(
-                      '${currencyFormatter.format(product.purchasePrice)} ',
+                      currencyFormatter.format(product.purchasePrice),
                       style: const TextStyle(fontSize: 13, color: Color(0xFF7F8C8D)),
                     ),
-              ],
-            ),
-            const SizedBox(width: 12),
-            // --- TOMBOL AKSI BARU ---
-            SizedBox(
-              width: 90, // Memberi lebar tetap pada tombol
-              child: ElevatedButton.icon(
-                onPressed: () => _showAddToCartDialog(product),
-                icon: const Icon(Icons.add_shopping_cart, size: 16),
-                label: const Text('Tambah'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  textStyle: const TextStyle(fontSize: 12),
-                  backgroundColor: const Color(0xFF5DADE2),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+                ],
               ),
-            ),
-          ],
+              // --- FIX: Hapus tombol "Tambah" dari sini ---
+            ],
+          ),
         ),
       ),
     );
   }
+
 
   Widget _buildPaginationControls(int totalItems, int totalPages) {
      if (totalItems <= _itemsPerPage) return const SizedBox.shrink();
@@ -257,8 +249,8 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
             children: [
               Text('Page ${_currentPage + 1} dari $totalPages', style: const TextStyle(color: Color(0xFF7F8C8D), fontSize: 12)),
               const SizedBox(width: 8),
-              IconButton(icon: const Icon(Icons.chevron_left), onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null),
-              IconButton(icon: const Icon(Icons.chevron_right), onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null),
+              IconButton(icon: const Icon(Icons.chevron_left), onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null, tooltip: 'Back'),
+              IconButton(icon: const Icon(Icons.chevron_right), onPressed: _currentPage < totalPages - 1 ? () => setState(() => _currentPage++) : null, tooltip: 'Next'),
             ],
           ),
         ],

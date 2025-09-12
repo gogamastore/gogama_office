@@ -2,9 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../models/purchase.dart';
 import '../../models/supplier.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/supplier_provider.dart';
@@ -137,7 +135,7 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
             const SizedBox(height: 8),
             suppliersAsync.when(
               data: (suppliers) => DropdownButtonFormField<Supplier>(
-                value: _selectedSupplier,
+                initialValue: _selectedSupplier,
                 hint: const Text('Pilih Supplier (Opsional)'),
                 items: suppliers.map((supplier) {
                   return DropdownMenuItem<Supplier>(

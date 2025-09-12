@@ -14,43 +14,25 @@ Aplikasi ini adalah sistem manajemen inventaris dan pesanan yang komprehensif, d
 
 ### A. Arsitektur & Teknologi
 - **Framework**: Flutter
+- **Perender Web**: Dikonfigurasi untuk menggunakan **CanvasKit** di `web/index.html` untuk rendering ikon dan *font* yang andal.
+- **Konfigurasi Web**: Jalur dasar (`base href`) diatur secara eksplisit ke `/` di `web/index.html` untuk mencegah *error* 404 saat memuat aset.
 - **Manajemen State**: `flutter_riverpod` untuk manajemen state yang reaktif dan terukur.
-- **Navigasi**: Menggunakan `Navigator` bawaan Flutter dengan `MaterialPageRoute`.
-- **Struktur Proyek**: Kode diorganisir berdasarkan fitur (misalnya, `screens/products`, `screens/orders`, `screens/purchases`).
-- **Layanan (Services)**: Logika bisnis dan interaksi backend (misalnya, Firestore) dienkapsulasi dalam kelas-kelas layanan (misalnya, `OrderService`).
+- **Struktur Proyek**: Kode diorganisir berdasarkan fitur (misalnya, `screens/products`, `screens/orders`).
+- **Desain & Tema**: Menggunakan `ThemeData` terpusat di `lib/main.dart` untuk konsistensi visual.
 
 ### B. Fitur Utama
 
-**1. Manajemen Produk:**
-- **Tampilan Daftar Produk**: Halaman `products_screen.dart` menampilkan semua produk dalam `ListView`.
-- **Pencarian Produk**: Fungsi pencarian *real-time* berdasarkan nama atau SKU produk.
-- **Detail Produk**: Menampilkan informasi penting seperti gambar, nama, SKU, harga jual, harga beli, dan jumlah stok.
-- **Placeholder Aksi**: Tombol untuk "Tambah Produk", "Impor", dan "Manajemen Stok" telah disiapkan di UI.
-
-**2. Manajemen Pesanan (Orders):**
-- **Tampilan Daftar Pesanan**: Halaman `orders_screen.dart` menampilkan semua pesanan dengan statusnya masing-masing.
-- **Halaman Detail Pesanan**: Menampilkan rincian lengkap pesanan, termasuk:
-  - Nomor pesanan, tanggal, dan status (misalnya, 'Pending', 'Processing').
-  - Informasi pelanggan (nama, telepon, alamat).
-  - Daftar produk yang dipesan beserta kuantitas dan subtotal.
-  - Rincian biaya (subtotal, ongkos kirim, dan total akhir).
-  - Informasi pembayaran (metode, status, dan tautan ke bukti bayar).
-- **Edit Pesanan**: Pengguna dapat mengedit pesanan yang sudah ada melalui halaman layar penuh (`edit_order_screen.dart`). Fitur ini memungkinkan:
-  - Menambah atau menghapus produk dari pesanan.
-  - Mengubah kuantitas setiap produk.
-  - Memperbarui biaya pengiriman.
-  - Kalkulasi ulang total secara otomatis.
-
-**3. Manajemen Pembelian (Purchases):**
-- **Proses Pembelian Baru**: Alur untuk membuat catatan pembelian baru dari pemasok (`process_purchase_screen.dart`).
-- **Keranjang Pembelian**: Pengguna dapat menambahkan item ke "keranjang pembelian" sebelum finalisasi (`purchase_cart_screen.dart`).
+- **Manajemen Produk**: Tampilan daftar, pencarian, dan halaman detail produk yang terpusat.
+- **Manajemen Pesanan**: Tampilan daftar, detail, dan halaman edit pesanan layar penuh.
+- **Manajemen Pembelian**: Alur untuk membuat catatan pembelian baru dan antarmuka keranjang.
 
 ### C. Desain & UI/UX
-- **Gaya Desain**: Mengadopsi Material Design dengan tata letak berbasis `Card` yang bersih dan modern.
-- **Ikonografi**: Menggunakan paket `ionicons` untuk ikon yang konsisten dan jelas.
-- **Tipografi**: Hirarki visual yang jelas untuk judul, subtitel, dan teks isi.
-- **Palet Warna**: Skema warna yang didominasi oleh `Color(0xFF5DADE2)` (biru) sebagai aksen, dengan latar belakang netral (`Color(0xFFF8F9FA)`) dan teks gelap (`Color(0xFF2C3E50)`).
-- **Umpan Balik Pengguna**: Menggunakan `SnackBar` untuk notifikasi (misalnya, "Pesanan berhasil diperbarui") dan `CircularProgressIndicator` saat memuat data.
+
+- **Gaya Desain**: Dikelola oleh `ThemeData` terpusat, mengadopsi gaya modern dan bersih.
+- **Ikonografi**: Menggunakan paket `ionicons`.
+- **Tipografi**: Menggunakan `google_fonts` dengan *font* **Inter**.
+- **Palet Warna**: Skema warna terpusat dengan biru (`#5DADE2`) sebagai aksen utama.
+- **Gaya Komponen**: Gaya global untuk `AppBar`, `Card`, dan `TextField`.
 
 ---
 
@@ -58,25 +40,46 @@ Aplikasi ini adalah sistem manajemen inventaris dan pesanan yang komprehensif, d
 
 Berikut adalah log dari perubahan terakhir yang diminta dan berhasil diimplementasikan.
 
-### Sesi Perbaikan Bug: `edit_order_screen.dart` (Terbaru)
+### Perombakan Alur Kerja Produk: Halaman Detail & Navigasi (Terbaru)
 
-**Tujuan**: Memperbaiki serangkaian *error* yang muncul setelah proses refaktor dari dialog ke halaman penuh, yang menyebabkan aplikasi tidak dapat di-*build*.
-
-**Langkah-Langkah Eksekusi:**
-
-1.  **✅ Analisis Error**: Mengidentifikasi beberapa *error* kritis di `edit_order_screen.dart`, termasuk pemanggilan metode, *provider*, dan nama *field* yang tidak valid.
-2.  **✅ Investigasi Kode**: Memeriksa file `order_service.dart`, `order_provider.dart`, dan `order_product.dart` untuk menemukan nama yang benar.
-3.  **✅ Implementasi Perbaikan**: Mengoreksi logika penyimpanan data agar sesuai dengan pola Riverpod, memperbaiki semua nama yang salah, dan menyelesaikan peringatan *linting*.
-4.  **✅ Verifikasi**: Memastikan semua *error* terkait telah hilang dan fungsionalitas edit pesanan berjalan sesuai harapan.
-
-### Permintaan: Mengubah Dialog "Edit Pesanan" Menjadi Halaman Penuh
-
-**Tujuan**: Mengganti `AlertDialog` yang digunakan untuk mengedit pesanan dengan sebuah halaman `Scaffold` layar penuh agar lebih ramah pengguna.
+**Tujuan**: Mengganti alur kerja manajemen produk yang lama (menggunakan ikon edit) dengan sistem yang lebih modern di mana pengguna mengklik item daftar untuk menavigasi ke halaman detail produk yang komprehensif.
 
 **Langkah-Langkah Eksekusi:**
 
-1.  **✅ Buat Halaman Baru**: Membuat file `lib/screens/orders/edit_order_screen.dart`.
-2.  **✅ Pindahkan Logika**: Memigrasikan UI dan logika dari dialog lama ke halaman baru.
-3.  **✅ Perbarui Navigasi**: Mengubah panggilan `showDialog` menjadi `Navigator.push` di `order_detail_screen.dart`.
-4.  **✅ Pembersihan Kode**: Menghapus file dialog lama `edit_order_dialog.dart`.
-5.  **✅ Perbaikan Error Awal**: Memperbaiki *error* `library_private_types_in_public_api` di `products_screen.dart`.
+1.  **✅ Pembuatan Halaman Detail Produk**: File baru `lib/screens/products/product_detail_screen.dart` dibuat. Halaman ini berfungsi sebagai pusat komando untuk satu produk, menampilkan gambar, judul, harga, stok, deskripsi, dan *app bar* dengan menu tindakan ("Edit", "Log", "Hapus").
+2.  **✅ Modifikasi Halaman Daftar Produk**: File `lib/screens/products/products_screen.dart` diperbarui. Ikon "Edit" dihapus dari setiap item. Seluruh kartu produk dibungkus dengan `InkWell` untuk menangani navigasi.
+3.  **✅ Implementasi Navigasi**: Logika `onTap` ditambahkan untuk memicu `Navigator.push`, mengarahkan pengguna ke `ProductDetailScreen` yang sesuai dan meneruskan objek produk yang dipilih.
+4.  **✅ Hasil**: Alur kerja menjadi lebih intuitif, bersih, dan sejalan dengan praktik desain aplikasi modern. Semua tindakan terkait produk kini terpusat di satu layar yang mudah diakses.
+
+### Pemeliharaan Kode: Menghapus Impor yang Tidak Digunakan
+
+**Tujuan**: Menjaga kebersihan kode dengan menghilangkan peringatan `unused_import`.
+
+**Langkah-Langkah Eksekusi:**
+
+1.  **✅ Identifikasi & Tindakan**: Menghapus impor yang tidak terpakai di `lib/screens/purchases/process_purchase_screen.dart`.
+
+### Peningkatan UI/UX Halaman Pembelian
+
+**Tujuan**: Meningkatkan alur kerja dan kebersihan antarmuka pada halaman "Pembelian".
+
+**Langkah-Langkah Eksekusi:**
+
+1.  **✅ Interaksi Produk Diubah**: Tombol "Tambah" dihapus, dan seluruh kartu produk dibuat dapat diklik.
+2.  **✅ Posisi Ikon Keranjang Dipindahkan**: `FloatingActionButton` dipindahkan ke kiri untuk mencegah tumpang tindih.
+
+### Perbaikan Bug: Dialog "Tambah Produk" Macet
+
+**Tujuan**: Memperbaiki bug di mana dialog tidak dapat ditutup karena ketidakcocokan tipe data.
+
+**Langkah-Langkah Eksekusi:**
+
+1.  **✅ Solusi**: Memperbaiki `edit_order_screen.dart` agar dapat menerima dan memproses tipe data yang benar dari dialog.
+
+### Sesi Perbaikan Bug Kritis: Aset Web & Ikon Hilang
+
+**Tujuan**: Menyelesaikan masalah `AssetManifest.bin.json not found (404)`.
+
+**Langkah-Langkah Debugging & Solusi:**
+
+1.  **✅ Solusi Kode**: Memaksa penggunaan perender **CanvasKit** dan mengatur **`base href`** di `web/index.html`.

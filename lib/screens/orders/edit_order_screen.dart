@@ -31,7 +31,8 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     super.initState();
     // Buat salinan yang bisa diubah
     _products = List<OrderProduct>.from(widget.order.products);
-    _shippingFeeController = TextEditingController(text: widget.order.shippingFee.toStringAsFixed(0));
+    // FIX: Tambahkan null check untuk shippingFee
+    _shippingFeeController = TextEditingController(text: (widget.order.shippingFee ?? 0).toStringAsFixed(0));
     _calculateTotals();
   }
 
@@ -59,23 +60,32 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     });
   }
 
+  // --- FIX: PERBAIKI LOGIKA UNTUK MENANGANI DAFTAR PRODUK ---
   void _addProduct() async {
-    final newProduct = await showDialog<OrderProduct>(
+    // 1. Harapkan `List<OrderProduct>`, bukan satu `OrderProduct`
+    final newProducts = await showDialog<List<OrderProduct>>(
       context: context,
       builder: (context) => AddProductToOrderDialog(
         existingProducts: _products,
       ),
     );
 
-    if (newProduct != null) {
+    // 2. Jika daftar tidak null (artinya pengguna menekan "Tambahkan")
+    if (newProducts != null && newProducts.isNotEmpty) {
       setState(() {
-        final existingIndex = _products.indexWhere((p) => p.productId == newProduct.productId);
-        if (existingIndex != -1) {
-          _products[existingIndex] = _products[existingIndex].copyWith(quantity: _products[existingIndex].quantity + newProduct.quantity);
-        } else {
-          _products.add(newProduct);
+        // 3. Iterasi setiap produk baru dari dialog
+        for (final newProduct in newProducts) {
+          final existingIndex = _products.indexWhere((p) => p.productId == newProduct.productId);
+          // Jika sudah ada, cukup tambahkan kuantitasnya
+          if (existingIndex != -1) {
+            final existingProduct = _products[existingIndex];
+            _products[existingIndex] = existingProduct.copyWith(quantity: existingProduct.quantity + newProduct.quantity);
+          } else {
+            // Jika belum ada, tambahkan ke daftar
+            _products.add(newProduct);
+          }
         }
-        _calculateTotals();
+        _calculateTotals(); // Hitung ulang total setelah semua produk ditambahkan
       });
     }
   }
