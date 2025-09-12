@@ -40,16 +40,26 @@ Aplikasi ini adalah sistem manajemen inventaris dan pesanan yang komprehensif, d
 
 Berikut adalah log dari perubahan terakhir yang diminta dan berhasil diimplementasikan.
 
-### Perombakan Alur Kerja Produk: Halaman Detail & Navigasi (Terbaru)
+### Peningkatan Alur Kerja Halaman Pembelian: Harga Beli Terakhir & Interaksi Intuitif (Saat Ini)
+
+**Tujuan**: Merombak alur kerja pada halaman "Buat Pembelian Baru" agar lebih intuitif. Tombol "Tambah" akan dihapus dan digantikan dengan gestur klik pada seluruh baris produk untuk membuka dialog. Selain itu, harga beli terakhir akan ditampilkan dan digunakan sebagai nilai default untuk mempercepat proses input.
+
+**Langkah-Langkah Eksekusi:**
+
+1.  **Pembaruan Model Produk**: Menambahkan field `lastPurchasePrice` ke model `Product`.
+2.  **Modifikasi Logika Proses Pembelian**: Memperbarui logika di `process_purchase_screen.dart` untuk menyimpan harga beli baru ke `lastPurchasePrice` setelah pembelian berhasil.
+3.  **Pembaruan UI Halaman Pembelian**: Merombak `purchases_screen.dart` untuk menghapus tombol "Tambah", membuat seluruh `ListTile` dapat diklik, dan menampilkan harga beli terakhir di daftar.
+4.  **Pembaruan Dialog Tambah Produk**: Memperbarui `add_to_purchase_cart_dialog.dart` untuk secara otomatis mengisi kolom harga dengan `lastPurchasePrice` produk.
+
+### Perombakan Alur Kerja Produk: Halaman Detail & Navigasi
 
 **Tujuan**: Mengganti alur kerja manajemen produk yang lama (menggunakan ikon edit) dengan sistem yang lebih modern di mana pengguna mengklik item daftar untuk menavigasi ke halaman detail produk yang komprehensif.
 
 **Langkah-Langkah Eksekusi:**
 
-1.  **✅ Pembuatan Halaman Detail Produk**: File baru `lib/screens/products/product_detail_screen.dart` dibuat. Halaman ini berfungsi sebagai pusat komando untuk satu produk, menampilkan gambar, judul, harga, stok, deskripsi, dan *app bar* dengan menu tindakan ("Edit", "Log", "Hapus").
-2.  **✅ Modifikasi Halaman Daftar Produk**: File `lib/screens/products/products_screen.dart` diperbarui. Ikon "Edit" dihapus dari setiap item. Seluruh kartu produk dibungkus dengan `InkWell` untuk menangani navigasi.
-3.  **✅ Implementasi Navigasi**: Logika `onTap` ditambahkan untuk memicu `Navigator.push`, mengarahkan pengguna ke `ProductDetailScreen` yang sesuai dan meneruskan objek produk yang dipilih.
-4.  **✅ Hasil**: Alur kerja menjadi lebih intuitif, bersih, dan sejalan dengan praktik desain aplikasi modern. Semua tindakan terkait produk kini terpusat di satu layar yang mudah diakses.
+1.  **✅ Pembuatan Halaman Detail Produk**: File baru `lib/screens/products/product_detail_screen.dart` dibuat.
+2.  **✅ Modifikasi Halaman Daftar Produk**: File `lib/screens/products/products_screen.dart` diperbarui. Ikon "Edit" dihapus dan seluruh kartu produk dibungkus dengan `InkWell`.
+3.  **✅ Implementasi Navigasi**: Logika `onTap` ditambahkan untuk menavigasi ke `ProductDetailScreen`.
 
 ### Pemeliharaan Kode: Menghapus Impor yang Tidak Digunakan
 
@@ -58,28 +68,3 @@ Berikut adalah log dari perubahan terakhir yang diminta dan berhasil diimplement
 **Langkah-Langkah Eksekusi:**
 
 1.  **✅ Identifikasi & Tindakan**: Menghapus impor yang tidak terpakai di `lib/screens/purchases/process_purchase_screen.dart`.
-
-### Peningkatan UI/UX Halaman Pembelian
-
-**Tujuan**: Meningkatkan alur kerja dan kebersihan antarmuka pada halaman "Pembelian".
-
-**Langkah-Langkah Eksekusi:**
-
-1.  **✅ Interaksi Produk Diubah**: Tombol "Tambah" dihapus, dan seluruh kartu produk dibuat dapat diklik.
-2.  **✅ Posisi Ikon Keranjang Dipindahkan**: `FloatingActionButton` dipindahkan ke kiri untuk mencegah tumpang tindih.
-
-### Perbaikan Bug: Dialog "Tambah Produk" Macet
-
-**Tujuan**: Memperbaiki bug di mana dialog tidak dapat ditutup karena ketidakcocokan tipe data.
-
-**Langkah-Langkah Eksekusi:**
-
-1.  **✅ Solusi**: Memperbaiki `edit_order_screen.dart` agar dapat menerima dan memproses tipe data yang benar dari dialog.
-
-### Sesi Perbaikan Bug Kritis: Aset Web & Ikon Hilang
-
-**Tujuan**: Menyelesaikan masalah `AssetManifest.bin.json not found (404)`.
-
-**Langkah-Langkah Debugging & Solusi:**
-
-1.  **✅ Solusi Kode**: Memaksa penggunaan perender **CanvasKit** dan mengatur **`base href`** di `web/index.html`.

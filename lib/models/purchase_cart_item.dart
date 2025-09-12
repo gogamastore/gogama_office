@@ -1,38 +1,38 @@
-
-import 'package:myapp/models/product.dart'; // Path yang sudah diperbaiki
+import '../models/product.dart';
 
 class PurchaseCartItem {
   final Product product;
-  int quantity;
-  double purchasePrice;
+  final int quantity;
+  final double purchasePrice;
 
   PurchaseCartItem({
     required this.product,
-    required this.quantity,
+    this.quantity = 1,
     required this.purchasePrice,
   });
 
   double get subtotal => quantity * purchasePrice;
 
-  // Mengubah item menjadi Map untuk Firestore
   Map<String, dynamic> toMap() {
     return {
       'productId': product.id,
       'productName': product.name,
       'quantity': quantity,
       'purchasePrice': purchasePrice,
-      // Simpan data produk yang relevan untuk referensi
-      'productDetails': product.toMap(), 
+      'subtotal': subtotal,
     };
   }
 
-  // Membuat item dari Map Firestore (perhatikan pengambilan produk)
-  factory PurchaseCartItem.fromMap(Map<String, dynamic> map) {
+  // Menambahkan metode copyWith yang hilang
+  PurchaseCartItem copyWith({
+    Product? product,
+    int? quantity,
+    double? purchasePrice,
+  }) {
     return PurchaseCartItem(
-      // Product.fromMap akan merekonstruksi objek Product
-      product: Product.fromMap(map['productDetails']), 
-      quantity: map['quantity'],
-      purchasePrice: map['purchasePrice'].toDouble(),
+      product: product ?? this.product,
+      quantity: quantity ?? this.quantity,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
     );
   }
 }

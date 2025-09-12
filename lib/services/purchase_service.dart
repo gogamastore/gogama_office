@@ -1,73 +1,74 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/purchase_cart_item.dart';
-import '../models/supplier.dart';
+import '../models/purchase_history.dart';
+
+// Definisi provider yang berlebihan sudah dihapus dari sini.
 
 class PurchaseService {
-  final _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
   final _uuid = const Uuid();
 
-  /// Memproses seluruh transaksi pembelian menggunakan Firestore WriteBatch.
-  ///
-  /// Alur ini memastikan semua operasi (membuat transaksi, memperbarui stok, 
-  /// dan mencatat riwayat) berhasil atau gagal bersamaan (atomik).
-  Future<void> processPurchaseTransaction({
+  PurchaseService(this._firestore);
+
+  Future<void> recordPurchase({
+    required String supplierId,
+    required String supplierName,
+    required Timestamp purchaseDate,
     required List<PurchaseCartItem> items,
     required double totalAmount,
     required String paymentMethod,
-    Supplier? supplier, // Supplier sekarang opsional
   }) async {
-    final batch = _db.batch();
-    final now = Timestamp.now();
-    
-    // 1. Membuat Dokumen di `purchase_transactions`
-    final transactionId = _uuid.v4();
-    final transactionRef = _db.collection('purchase_transactions').doc(transactionId);
+    if (items.isEmpty) {
+      throw Exception('Keranjang pembelian kosong.');
+    }
 
-    batch.set(transactionRef, {
-      'date': now,
+    final purchaseId = _uuid.v4();
+    final batch = _firestore.batch();
+
+    final purchaseRef = _firestore.collection('purchases').doc(purchaseId);
+    batch.set(purchaseRef, {
+      'supplierId': supplierId,
+      'supplierName': supplierName,
+      'purchaseDate': purchaseDate,
       'totalAmount': totalAmount,
-      'supplierId': supplier?.id,
-      'supplierName': supplier?.name,
       'paymentMethod': paymentMethod,
-      'items': items.map((item) => {
-        'productId': item.product.id,
-        'productName': item.product.name,
-        'quantity': item.quantity,
-        'purchasePrice': item.purchasePrice,
-      }).toList(),
+      'itemCount': items.length,
     });
 
-    // 2. Memperbarui Stok & Harga di `products` dan Membuat Log di `purchase_history`
     for (final item in items) {
-      final productRef = _db.collection('products').doc(item.product.id);
-      
-      // Operasi pembaruan untuk koleksi `products`
-      batch.update(productRef, {
-        // Menambah stok yang ada dengan kuantitas baru
-        'stock': FieldValue.increment(item.quantity),
-        // Memperbarui harga beli terakhir
-        'purchasePrice': item.purchasePrice, 
-      });
+      final itemRef = purchaseRef.collection('items').doc(item.product.id);
+      batch.set(itemRef, item.toMap());
 
-      // Operasi pembuatan log untuk koleksi `purchase_history`
-      final historyId = _uuid.v4();
-      final historyRef = _db.collection('purchase_history').doc(historyId);
+      final productRef = _firestore.collection('products').doc(item.product.id);
       
-      batch.set(historyRef, {
-        'productId': item.product.id,
-        'productName': item.product.name,
+      batch.update(productRef, {
+        'stock': FieldValue.increment(item.quantity),
+        'lastPurchasePrice': item.purchasePrice,
+      });
+      
+      final productHistoryRef = productRef.collection('purchase_history').doc();
+      batch.set(productHistoryRef, {
+        'purchaseId': purchaseId,
+        'purchaseDate': purchaseDate,
+        'supplierName': supplierName,
         'quantity': item.quantity,
         'purchasePrice': item.purchasePrice,
-        'purchaseDate': now,
-        'supplierName': supplier?.name, // Bisa null jika tidak ada supplier
-        'transactionId': transactionId, // Referensi ke transaksi utama
       });
     }
 
-    // 3. Menjalankan Semua Operasi dalam Batch
     await batch.commit();
+  }
+
+  Stream<List<PurchaseHistory>> getPurchaseHistoryForProduct(String productId) {
+    return _firestore
+        .collection('products')
+        .doc(productId)
+        .collection('purchase_history')
+        .orderBy('purchaseDate', descending: true)
+        .snapshots()
+        .map((snapshot) => 
+            snapshot.docs.map((doc) => PurchaseHistory.fromMap(doc.data())).toList());
   }
 }

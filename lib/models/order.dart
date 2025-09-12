@@ -1,6 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './order_product.dart';
 
+// --- FUNGSI HELPER UNTUK PARSING YANG AMAN ---
+
+// Mengubah berbagai jenis data tanggal (Timestamp, DateTime) menjadi Timestamp
+Timestamp _parseDate(dynamic date) {
+  if (date is Timestamp) {
+    return date; // Tipe sudah benar (umumnya dari mobile)
+  }
+  if (date is DateTime) {
+    return Timestamp.fromDate(date); // Handle jika datanya DateTime (terkadang dari web)
+  }
+  // Fallback jika data null atau tipe tidak dikenal
+  return Timestamp.now();
+}
+
+// Mengubah berbagai jenis data angka (double, int, String) menjadi double
+double? _parseDouble(dynamic value) {
+  if (value is double) return value;
+  if (value is int) return value.toDouble();
+  if (value is String) {
+    return double.tryParse(value.replaceAll(RegExp(r'[^0-9.]'), ''));
+  }
+  return null;
+}
+
 class Order {
   final String id;
   final String customer;
@@ -34,45 +58,48 @@ class Order {
     this.updatedAt,
   });
 
+  // FACTORY CONSTRUCTOR YANG SUDAH DIPERKUAT
   factory Order.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     Map<String, dynamic> customerDetails = data['customerDetails'] as Map<String, dynamic>? ?? {};
 
-    // --- PERBAIKAN LOGIKA UNTUK MENANGANI TIPE DATA TOTAL YANG TIDAK KONSISTEN ---
+    // Logika parsing total yang sudah ada (dipertahankan)
     dynamic totalValue = data['total'];
     String totalString;
     if (totalValue is num) {
-      // Jika datanya Angka (misal: 99000), ubah menjadi String
       totalString = totalValue.toString();
     } else if (totalValue is String) {
-      // Jika datanya sudah String, langsung gunakan
       totalString = totalValue;
     } else {
-      // Jika datanya null atau tipe lain, beri nilai default '0'
       totalString = '0';
     }
-    // --- AKHIR PERBAIKAN ---
 
     return Order(
       id: doc.id,
       customer: data['customer'] ?? 'N/A',
       customerPhone: customerDetails['whatsapp'] ?? '-',
       customerAddress: customerDetails['address'] ?? '-',
-      date: data['date'] ?? Timestamp.now(),
+      
+      // Menggunakan helper untuk parsing tanggal yang aman
+      date: _parseDate(data['date']),
+      
       status: data['status']?.toLowerCase() ?? 'pending',
-      total: totalString, // Gunakan String yang sudah aman dan bersih
+      total: totalString,
       
       paymentMethod: data['paymentMethod'] ?? 'N/A',
       paymentStatus: data['paymentStatus']?.toLowerCase() ?? 'unpaid',
       paymentProofUrl: data['paymentProofUrl'],
       
       shippingMethod: data['shippingMethod'] ?? 'N/A',
-      shippingFee: (data['shippingFee'] as num?)?.toDouble(),
+      // Menggunakan helper untuk parsing biaya kirim yang aman
+      shippingFee: _parseDouble(data['shippingFee']),
+      
       products: (data['products'] as List<dynamic>?)
               ?.map((item) => OrderProduct.fromJson(item as Map<String, dynamic>))
               .toList() ??
           [],
-      updatedAt: data['updatedAt'] as Timestamp?,
+      // Menggunakan helper untuk parsing tanggal update yang aman
+      updatedAt: data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
     );
   }
 }

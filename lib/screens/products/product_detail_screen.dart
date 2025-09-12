@@ -1,20 +1,22 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/product.dart';
-import 'edit_product_screen.dart'; // Impor halaman edit
+import '../../providers/product_provider.dart';
+import 'edit_product_screen.dart';
+import 'purchase_history_dialog.dart'; // Impor dialog riwayat
 
-class ProductDetailScreen extends StatefulWidget {
+class ProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
 
   const ProductDetailScreen({super.key, required this.product});
 
   @override
-  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+  _ProductDetailScreenState createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   late Product _currentProduct;
 
   @override
@@ -23,24 +25,76 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _currentProduct = widget.product;
   }
 
-  // Navigasi ke halaman edit dan tunggu halamannya ditutup
   void _navigateToEditScreen() async {
-    // PERBAIKAN: Hapus variabel 'result' yang tidak digunakan.
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EditProductScreen(product: _currentProduct),
       ),
     );
-
-    // Karena kita menggunakan Riverpod untuk state management, kita tidak perlu 
-    // secara manual memperbarui state di sini. Provider akan secara otomatis 
-    // memperbarui UI di seluruh aplikasi saat data di Firestore berubah.
   }
 
+  // Fungsi untuk menampilkan dialog riwayat pembelian
+  void _showPurchaseHistory() {
+    showDialog(
+      context: context,
+      builder: (context) => PurchaseHistoryDialog(productId: _currentProduct.id),
+    );
+  }
+
+  Future<void> _deleteProduct() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Hapus'),
+        content: Text('Apakah Anda yakin ingin menghapus produk "${_currentProduct.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ref.read(productServiceProvider).deleteProduct(_currentProduct.id);
+        Navigator.of(context).pop(); 
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('"${_currentProduct.name}" berhasil dihapus.')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menghapus produk: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+
+    ref.watch(allProductsProvider).when(
+      data: (products) {
+        final updatedProduct = products.firstWhere(
+          (p) => p.id == widget.product.id,
+          orElse: () => _currentProduct,
+        );
+        if (_currentProduct != updatedProduct) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _currentProduct = updatedProduct;
+              });
+            }
+          });
+        }
+      },
+      loading: () {},
+      error: (err, stack) {},
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -49,17 +103,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit), 
             tooltip: 'Edit Produk',
-            onPressed: _navigateToEditScreen, // <-- PANGGIL FUNGSI NAVIGASI
+            onPressed: _navigateToEditScreen,
           ),
           IconButton(
             icon: const Icon(Icons.history), 
             tooltip: 'Lihat Log Stok',
-            onPressed: () { /* TODO: Implement Log History */ },
+            onPressed: _showPurchaseHistory, // Panggil fungsi riwayat
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline), 
             tooltip: 'Hapus Produk',
-            onPressed: () { /* TODO: Implement Delete Logic */ },
+            onPressed: _deleteProduct,
           ),
         ],
       ),
@@ -82,7 +136,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildImageSection() {
     return Center(
       child: Hero(
-        tag: 'product-image-${_currentProduct.id}', // Tag unik untuk animasi
+        tag: 'product-image-${_currentProduct.id}',
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12.0),
           child: (_currentProduct.image != null && _currentProduct.image!.isNotEmpty)

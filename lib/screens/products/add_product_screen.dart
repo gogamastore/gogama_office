@@ -6,22 +6,22 @@ import 'package:intl/intl.dart';
 import '../../models/product.dart';
 import '../../models/product_category.dart';
 import '../../providers/category_provider.dart';
-import '../../providers/product_provider.dart'; // Impor provider produk
+import '../../providers/product_provider.dart';
 
-class EditProductScreen extends ConsumerStatefulWidget {
-  final Product product;
-
-  const EditProductScreen({super.key, required this.product});
+class AddProductScreen extends ConsumerStatefulWidget {
+  const AddProductScreen({super.key});
 
   @override
-  EditProductScreenState createState() => EditProductScreenState();
+  AddProductScreenState createState() => AddProductScreenState();
 }
 
-class EditProductScreenState extends ConsumerState<EditProductScreen> {
+class AddProductScreenState extends ConsumerState<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _skuController;
   late TextEditingController _priceController;
+  late TextEditingController _purchasePriceController; // Controller untuk Harga Beli
+  late TextEditingController _stockController; // Controller untuk Stok
   late TextEditingController _descriptionController;
 
   String? _selectedCategoryId;
@@ -29,11 +29,12 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.product.name);
-    _skuController = TextEditingController(text: widget.product.sku);
-    _priceController = TextEditingController(text: widget.product.price.toStringAsFixed(0));
-    _descriptionController = TextEditingController(text: widget.product.description);
-    _selectedCategoryId = widget.product.categoryId;
+    _nameController = TextEditingController();
+    _skuController = TextEditingController();
+    _priceController = TextEditingController();
+    _purchasePriceController = TextEditingController();
+    _stockController = TextEditingController();
+    _descriptionController = TextEditingController();
   }
 
   @override
@@ -41,34 +42,47 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     _nameController.dispose();
     _skuController.dispose();
     _priceController.dispose();
+    _purchasePriceController.dispose();
+    _stockController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
-      final newPrice = double.tryParse(_priceController.text) ?? 0.0;
+      final name = _nameController.text;
+      final sku = _skuController.text;
+      final price = double.tryParse(_priceController.text) ?? 0.0;
+      final purchasePrice = double.tryParse(_purchasePriceController.text) ?? 0.0;
+      final stock = int.tryParse(_stockController.text) ?? 0;
+      final description = _descriptionController.text;
 
-      // Buat produk yang diperbarui menggunakan copyWith
-      final updatedProduct = widget.product.copyWith(
-        name: _nameController.text,
-        sku: _skuController.text,
-        price: newPrice,
-        description: _descriptionController.text,
+      // Membuat objek Product baru
+      final newProduct = Product(
+        id: '', // ID akan digenerate oleh Firestore
+        name: name,
+        sku: sku,
+        price: price,
+        purchasePrice: purchasePrice,
+        stock: stock,
+        description: description,
         categoryId: _selectedCategoryId,
+        image: null, // TODO: Implement image upload
       );
 
       try {
-        // Panggil provider untuk memperbarui produk
-        await ref.read(productServiceProvider).updateProduct(updatedProduct);
+        // Memanggil provider untuk menambah produk baru
+        await ref.read(productServiceProvider).addProduct(newProduct);
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perubahan berhasil disimpan!')),
+          SnackBar(content: Text('Produk "$name" berhasil ditambahkan!')),
         );
         Navigator.of(context).pop(); // Kembali setelah berhasil
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyimpan perubahan: $e')),
+          SnackBar(content: Text('Gagal menambah produk: $e')),
         );
       }
     }
@@ -95,11 +109,13 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
                 if (name.isNotEmpty) {
                   try {
                     await ref.read(addCategoryProvider(name).future);
+                    if(!mounted) return;
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Kategori "$name" berhasil ditambahkan.')),
                     );
                   } catch (e) {
+                     if(!mounted) return;
                      ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Gagal menambah kategori: $e')),
                     );
@@ -115,11 +131,9 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Detail Produk'),
+        title: const Text('Tambah Produk Baru'),
         actions: [
           IconButton(
             icon: const Icon(Icons.save), 
@@ -143,7 +157,7 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
               const SizedBox(height: 16),
               _buildCategoryDropdown(),
               const SizedBox(height: 16),
-              _buildPriceFields(currencyFormatter),
+              _buildPriceFields(),
               const SizedBox(height: 16),
               _buildTextField(_descriptionController, 'Deskripsi', 'Masukkan deskripsi produk', maxLines: 4, optional: true),
             ],
@@ -154,19 +168,14 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
   }
 
   Widget _buildImageEditor() {
-    // TODO: Implement image picking and display logic
+    // Placeholder untuk produk baru
     return Center(
       child: Stack(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 60,
-            backgroundColor: const Color(0xFFE0E6ED),
-            backgroundImage: (widget.product.image != null && widget.product.image!.isNotEmpty) 
-              ? NetworkImage(widget.product.image!) 
-              : null,
-            child: (widget.product.image == null || widget.product.image!.isEmpty) 
-              ? const Icon(Icons.camera_alt, size: 50, color: Color(0xFFBDC3C7)) 
-              : null,
+            backgroundColor: Color(0xFFE0E6ED),
+            child: Icon(Icons.camera_alt, size: 50, color: Color(0xFFBDC3C7)),
           ),
           Positioned(
             bottom: 0,
@@ -207,7 +216,6 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
     return categoriesAsync.when(
       data: (categories) {
-        // Pastikan selectedCategoryId valid
         if (_selectedCategoryId != null && !categories.any((c) => c.id == _selectedCategoryId)) {
            _selectedCategoryId = null;
         }
@@ -239,10 +247,13 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     );
   }
 
-  Widget _buildPriceFields(NumberFormat currencyFormatter) {
+  Widget _buildPriceFields() {
+    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Harga Jual
         TextFormField(
           controller: _priceController,
           decoration: const InputDecoration(
@@ -257,7 +268,7 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
               return 'Harga Jual tidak boleh kosong';
             }
             final price = double.tryParse(value) ?? 0.0;
-            final purchasePrice = widget.product.purchasePrice ?? 0.0;
+            final purchasePrice = double.tryParse(_purchasePriceController.text) ?? 0.0;
             if (price < purchasePrice) {
               return 'Harga Jual tidak boleh lebih rendah dari Harga Beli (${currencyFormatter.format(purchasePrice)})';
             }
@@ -265,30 +276,39 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
           },
         ),
         const SizedBox(height: 16),
-        InputDecorator(
+        // Harga Beli
+        TextFormField(
+          controller: _purchasePriceController,
           decoration: const InputDecoration(
-            labelText: 'Harga Beli (Tidak dapat diubah)',
+            labelText: 'Harga Beli',
             border: OutlineInputBorder(),
-            filled: true,
-            fillColor: Color(0xFFF2F4F4),
+            prefixText: 'Rp ',
           ),
-          child: Text(
-            currencyFormatter.format(widget.product.purchasePrice ?? 0),
-            style: const TextStyle(fontSize: 16, color: Colors.black54),
-          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+           validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Harga Beli tidak boleh kosong';
+            }
+            return null;
+          },
         ),
-         const SizedBox(height: 16),
-         InputDecorator(
+        const SizedBox(height: 16),
+        // Stok Awal
+        TextFormField(
+          controller: _stockController,
           decoration: const InputDecoration(
-            labelText: 'Stok (Tidak dapat diubah)',
+            labelText: 'Stok Awal',
             border: OutlineInputBorder(),
-            filled: true,
-            fillColor: Color(0xFFF2F4F4),
           ),
-          child: Text(
-            widget.product.stock.toString(),
-            style: const TextStyle(fontSize: 16, color: Colors.black54),
-          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+           validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Stok Awal tidak boleh kosong';
+            }
+            return null;
+          },
         ),
       ],
     );

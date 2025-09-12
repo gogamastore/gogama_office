@@ -1,7 +1,5 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../models/product.dart';
 import '../../providers/purchase_provider.dart';
@@ -17,41 +15,30 @@ class AddToPurchaseCartDialog extends ConsumerStatefulWidget {
 
 class _AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _quantityController;
-  late final TextEditingController _priceController;
-  final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0);
+  int _quantity = 1;
+  late double _purchasePrice; // Dibuat `late` karena akan diinisialisasi di initState
 
   @override
   void initState() {
     super.initState();
-    _quantityController = TextEditingController(text: '1');
-    // Menggunakan harga beli dari produk sebagai default
-    _priceController = TextEditingController(
-      text: currencyFormatter.format(widget.product.purchasePrice ?? 0),
-    );
-  }
-
-  @override
-  void dispose() {
-    _quantityController.dispose();
-    _priceController.dispose();
-    super.dispose();
+    // Inisialisasi harga beli dengan harga beli terakhir dari produk.
+    // Jika null (belum pernah dibeli), fallback ke 0.0
+    _purchasePrice = widget.product.lastPurchasePrice ?? 0.0;
   }
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      final quantity = int.tryParse(_quantityController.text) ?? 1;
-      final price = double.tryParse(_priceController.text.replaceAll('.', '')) ?? widget.product.purchasePrice ?? 0;
+      _formKey.currentState!.save();
 
-      ref.read(purchaseCartProvider.notifier).addItem(widget.product, quantity, price);
-      
-      Navigator.of(context).pop(); // Tutup dialog setelah berhasil
+      ref.read(purchaseCartProvider.notifier).addProduct(
+            widget.product,
+            _purchasePrice,
+            _quantity,
+          );
 
+      Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${widget.product.name} ditambahkan ke keranjang.'),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text('${widget.product.name} ditambahkan ke keranjang pembelian.')),
       );
     }
   }
@@ -59,66 +46,48 @@ class _AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialo
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Tambah ke Keranjang'),
+      title: const Text('Tambah ke Keranjang Pembelian'),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Masukkan jumlah dan harga beli untuk: ${widget.product.name}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Text(widget.product.name, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _quantityController,
+              initialValue: _quantity.toString(),
+              decoration: const InputDecoration(labelText: 'Jumlah', border: OutlineInputBorder()),
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Jumlah',
-                border: OutlineInputBorder(),
-              ),
               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Jumlah tidak boleh kosong';
-                }
-                if (int.tryParse(value) == null || int.parse(value) <= 0) {
-                  return 'Masukkan jumlah yang valid';
+                if (value == null || int.tryParse(value) == null || int.parse(value) <= 0) {
+                  return 'Masukkan jumlah yang valid.';
                 }
                 return null;
               },
+              onSaved: (value) => _quantity = int.parse(value!),
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _priceController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Harga Beli (Satuan)',
-                prefixText: 'Rp ',
-                border: OutlineInputBorder(),
-              ),
-               validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Harga tidak boleh kosong';
-                }
-                if (double.tryParse(value.replaceAll('.', '')) == null) {
-                  return 'Masukkan harga yang valid';
+              // Menggunakan `key` untuk memastikan `initialValue` diperbarui saat widget dibangun ulang
+              key: Key(_purchasePrice.toString()),
+              initialValue: _purchasePrice.toStringAsFixed(2), // Menampilkan 2 angka desimal
+              decoration: const InputDecoration(labelText: 'Harga Beli per Unit', prefixText: 'Rp ', border: OutlineInputBorder()),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (value) {
+                if (value == null || double.tryParse(value.replaceAll(',', '.')) == null || double.parse(value.replaceAll(',', '.')) < 0) {
+                  return 'Masukkan harga yang valid.';
                 }
                 return null;
               },
+              onSaved: (value) => _purchasePrice = double.parse(value!.replaceAll(',', '.')),
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
-        ),
-        ElevatedButton(
-          onPressed: _submit,
-          child: const Text('Simpan'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+        ElevatedButton(onPressed: _submit, child: const Text('Tambah')),
       ],
     );
   }

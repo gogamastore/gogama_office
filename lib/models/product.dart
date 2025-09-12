@@ -1,12 +1,13 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Fungsi utilitas untuk mengubah berbagai format harga menjadi double
+// Fungsi utilitas yang diperbarui untuk mengubah berbagai format harga menjadi double
 double parsePrice(dynamic price) {
   if (price is double) return price;
   if (price is int) return price.toDouble();
   if (price is String) {
+    // Hapus semua karakter non-numerik (Rp, spasi, titik ribuan)
     final sanitized = price.replaceAll(RegExp(r'[^0-9]'), '');
+    if (sanitized.isEmpty) return 0.0;
     return double.tryParse(sanitized) ?? 0.0;
   }
   return 0.0;
@@ -19,9 +20,10 @@ class Product {
   final int stock;
   final String? sku;
   final String? image;
-  final double? purchasePrice; // Harga Beli
+  final double? purchasePrice; // Harga Beli (bisa jadi harga rata-rata)
   final String? description;
-  final String? categoryId; // <-- FIELD BARU DITAMBAHKAN
+  final String? categoryId;
+  final double? lastPurchasePrice; // Harga beli terakhir yang spesifik
 
   Product({
     required this.id,
@@ -32,10 +34,10 @@ class Product {
     this.image,
     this.purchasePrice,
     this.description,
-    this.categoryId, // <-- Diperbarui di konstruktor
+    this.categoryId,
+    this.lastPurchasePrice,
   });
 
-  // Serialisasi: Mengubah objek Product menjadi Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -46,11 +48,11 @@ class Product {
       'image': image,
       'purchasePrice': purchasePrice,
       'description': description,
-      'categoryId': categoryId, // <-- Diperbarui untuk serialisasi
+      'categoryId': categoryId,
+      'lastPurchasePrice': lastPurchasePrice,
     };
   }
 
-  // Deserialisasi: Membuat objek Product dari Map
   factory Product.fromMap(Map<String, dynamic> map) {
     return Product(
       id: map['id'] ?? '',
@@ -61,11 +63,12 @@ class Product {
       image: map['image'] as String?,
       purchasePrice: parsePrice(map['purchasePrice']),
       description: map['description'] as String?,
-      categoryId: map['categoryId'] as String?, // <-- Diperbarui untuk deserialisasi
+      categoryId: map['categoryId'] as String?,
+      // Fallback: Gunakan purchasePrice jika lastPurchasePrice tidak ada
+      lastPurchasePrice: parsePrice(map['lastPurchasePrice'] ?? map['purchasePrice']),
     );
   }
 
-  // Deserialisasi dari Firestore
   factory Product.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Product(
@@ -77,11 +80,12 @@ class Product {
       image: data['image'] as String?,
       purchasePrice: parsePrice(data['purchasePrice']),
       description: data['description'] as String?,
-      categoryId: data['categoryId'] as String?, // <-- Diperbarui untuk deserialisasi
+      categoryId: data['categoryId'] as String?,
+      // Fallback: Gunakan purchasePrice jika lastPurchasePrice tidak ada
+      lastPurchasePrice: parsePrice(data['lastPurchasePrice'] ?? data['purchasePrice']),
     );
   }
 
-  // Metode CopyWith untuk membuat salinan objek dengan perubahan
   Product copyWith({
     String? id,
     String? name,
@@ -92,6 +96,7 @@ class Product {
     double? purchasePrice,
     String? description,
     String? categoryId,
+    double? lastPurchasePrice,
   }) {
     return Product(
       id: id ?? this.id,
@@ -103,6 +108,7 @@ class Product {
       purchasePrice: purchasePrice ?? this.purchasePrice,
       description: description ?? this.description,
       categoryId: categoryId ?? this.categoryId,
+      lastPurchasePrice: lastPurchasePrice ?? this.lastPurchasePrice,
     );
   }
 }
