@@ -1,15 +1,18 @@
-
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
 
 import '../../models/order.dart';
-import '../../models/order_product.dart';
+import '../../models/order_item.dart';
+import '../../models/product.dart';
 import '../../providers/order_provider.dart';
 import 'add_product_to_order_dialog.dart';
+import 'edit_order_item_dialog.dart';
 
-// Ini adalah halaman baru, menggantikan AlertDialog sebelumnya
+// MODERNISASI TOTAL: File ini sekarang menggunakan OrderItem secara eksklusif.
+
 class EditOrderScreen extends ConsumerStatefulWidget {
   final Order order;
 
@@ -20,7 +23,8 @@ class EditOrderScreen extends ConsumerStatefulWidget {
 }
 
 class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
-  late List<OrderProduct> _products;
+  // LANGKAH 1: State sekarang menggunakan List<OrderItem>
+  late List<OrderItem> _items;
   late TextEditingController _shippingFeeController;
   double _subtotal = 0;
   double _total = 0;
@@ -29,103 +33,154 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   @override
   void initState() {
     super.initState();
-    // Buat salinan yang bisa diubah
-    _products = List<OrderProduct>.from(widget.order.products);
-    // FIX: Tambahkan null check untuk shippingFee
-    _shippingFeeController = TextEditingController(text: (widget.order.shippingFee ?? 0).toStringAsFixed(0));
+    // LANGKAH 2: Konversi dari OrderProduct ke OrderItem hanya sekali saat inisialisasi.
+    _items = widget.order.products.map((p) {
+      // Asumsi OrderProduct memiliki semua data yang diperlukan.
+      // Jika tidak, Anda mungkin perlu mengambil data produk tambahan di sini.
+      return OrderItem(
+        productId: p.productId,
+        name: p.name,
+        quantity: p.quantity,
+        price: p.price,
+        imageUrl: p.imageUrl,
+        sku: p.sku,
+      );
+    }).toList();
+
+    _shippingFeeController = TextEditingController(
+      text: (widget.order.shippingFee ?? 0).toStringAsFixed(0),
+    );
     _calculateTotals();
   }
 
+  @override
+  void dispose() {
+    _shippingFeeController.dispose();
+    super.dispose();
+  }
+
   void _calculateTotals() {
-    _subtotal = _products.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
+    _subtotal = _items.fold(
+      0.0,
+      (sum, item) => sum + (item.price * item.quantity),
+    );
     final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
     setState(() {
       _total = _subtotal + shippingFee;
     });
   }
 
-  void _updateQuantity(int index, int newQuantity) {
-    if (newQuantity > 0) {
+  // LANGKAH 3: Logika Edit disederhanakan, tidak perlu konversi.
+  void _editItem(int index) async {
+    final itemToEdit = _items[index];
+
+    final updatedItem = await showDialog<OrderItem>(
+      context: context,
+      builder: (context) => EditOrderItemDialog(product: itemToEdit),
+    );
+
+    if (updatedItem != null) {
       setState(() {
-        _products[index] = _products[index].copyWith(quantity: newQuantity);
+        _items[index] = updatedItem;
         _calculateTotals();
       });
     }
   }
 
   void _removeProduct(int index) {
+    final removedItem = _items[index];
     setState(() {
-      _products.removeAt(index);
+      _items.removeAt(index);
       _calculateTotals();
     });
-  }
-
-  // --- FIX: PERBAIKI LOGIKA UNTUK MENANGANI DAFTAR PRODUK ---
-  void _addProduct() async {
-    // 1. Harapkan `List<OrderProduct>`, bukan satu `OrderProduct`
-    final newProducts = await showDialog<List<OrderProduct>>(
-      context: context,
-      builder: (context) => AddProductToOrderDialog(
-        existingProducts: _products,
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${removedItem.name} dihapus'),
+        duration: const Duration(seconds: 2),
       ),
     );
+  }
 
-    // 2. Jika daftar tidak null (artinya pengguna menekan "Tambahkan")
-    if (newProducts != null && newProducts.isNotEmpty) {
+  // LANGKAH 4: Logika Tambah Produk sekarang membuat OrderItem.
+  void _addProduct() async {
+    final Product? selectedProduct = await showDialog<Product>(
+      context: context,
+      builder: (_) => const AddProductToOrderDialog(),
+    );
+
+    if (selectedProduct != null) {
       setState(() {
-        // 3. Iterasi setiap produk baru dari dialog
-        for (final newProduct in newProducts) {
-          final existingIndex = _products.indexWhere((p) => p.productId == newProduct.productId);
-          // Jika sudah ada, cukup tambahkan kuantitasnya
-          if (existingIndex != -1) {
-            final existingProduct = _products[existingIndex];
-            _products[existingIndex] = existingProduct.copyWith(quantity: existingProduct.quantity + newProduct.quantity);
-          } else {
-            // Jika belum ada, tambahkan ke daftar
-            _products.add(newProduct);
-          }
+        final existingItemIndex = _items.indexWhere((item) => item.productId == selectedProduct.id);
+
+        if (existingItemIndex != -1) {
+          final existingItem = _items[existingItemIndex];
+          _items[existingItemIndex] = existingItem.copyWith(
+            quantity: existingItem.quantity + 1,
+          );
+        } else {
+          _items.add(OrderItem(
+            productId: selectedProduct.id,
+            name: selectedProduct.name,
+            quantity: 1,
+            price: selectedProduct.price,
+            imageUrl: selectedProduct.image,
+            sku: selectedProduct.sku,
+          ));
         }
-        _calculateTotals(); // Hitung ulang total setelah semua produk ditambahkan
+        _calculateTotals();
       });
     }
   }
 
+  // LANGKAH 5: Logika Simpan sekarang modern dan bersih.
   Future<void> _saveChanges() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
-    final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
-    
-    // Panggil metode notifier, bukan service langsung
-    final success = await ref.read(orderProvider.notifier).updateOrder(
-      widget.order.id,
-      _products,
-      shippingFee,
-      _total,
-    );
-    
-    // Guard dengan 'mounted' check
-    if (!mounted) return;
+    try {
+      // Tidak perlu konversi, _items sudah dalam format yang benar.
+      final success = await ref.read(orderProvider.notifier).updateOrder(
+            widget.order.id,
+            _items, // Langsung kirim List<OrderItem>
+            double.tryParse(_shippingFeeController.text) ?? 0.0,
+            _total,
+          );
 
-    if (success) {
-      // Invalidate provider yang relevan untuk refresh data
-      ref.invalidate(orderProvider);
-      ref.invalidate(orderDetailsProvider(widget.order.id));
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesanan berhasil diperbarui!')));
-      Navigator.of(context).pop();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal menyimpan perubahan.')));
-    }
-
-    if(mounted) {
-      setState(() => _isSaving = false);
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pesanan berhasil diperbarui!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop();
+      } else if (mounted) {
+        // Handle kasus ketika success == false
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memperbarui pesanan. Silakan coba lagi.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit Pesanan #${widget.order.id.substring(0, 7)}...'),
@@ -133,147 +188,270 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
           if (_isSaving)
             const Padding(
               padding: EdgeInsets.only(right: 16.0),
-              child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3))),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+              ),
             )
           else
             IconButton(
               icon: const Icon(Icons.check),
-              onPressed: _saveChanges,
+              onPressed: _items.isNotEmpty ? _saveChanges : null,
               tooltip: 'Simpan Perubahan',
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addProduct,
-        label: const Text('Tambah Produk'),
-        icon: const Icon(Icons.add),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildProductListSection(),
-            const SizedBox(height: 24),
-            _buildTotalsSection(formatter),
-            const SizedBox(height: 80), // Ruang untuk FAB
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductListSection() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Item Produk', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            if (_products.isEmpty)
-              const Center(child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24.0),
-                child: Text('Tidak ada produk dalam pesanan.'),
-              )),
-            if (_products.isNotEmpty)
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _products.length,
-                separatorBuilder: (context, index) => const Divider(),
-                itemBuilder: (context, index) {
-                  final product = _products[index];
-                  return ListTile(
-                    // FIX: Gunakan 'name' bukan 'productName'
-                    title: Text(product.name),
-                    subtitle: Text(NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(product.price)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildQuantityEditor(index, product.quantity),
-                        IconButton(
-                          icon: const Icon(Ionicons.trash_outline, color: Colors.redAccent, size: 20),
-                          onPressed: () => _removeProduct(index),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: ElevatedButton.icon(
+              onPressed: _addProduct,
+              icon: const Icon(Icons.add),
+              label: const Text('Tambah Produk'),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-          ],
-        ),
+            ),
+          ),
+          Expanded(
+            child: _items.isEmpty ? _buildEmptyState() : _buildProductListView(),
+          ),
+          _buildTotalsSection(),
+        ],
       ),
     );
   }
 
-  Widget _buildQuantityEditor(int index, int quantity) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Ionicons.remove_circle_outline, size: 22, color: Colors.black54),
-          onPressed: () => _updateQuantity(index, quantity - 1),
-          splashRadius: 20,
-        ),
-        SizedBox(
-          width: 30,
-          child: Text(quantity.toString(), textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
-        ),
-        IconButton(
-          icon: const Icon(Ionicons.add_circle_outline, size: 22, color: Colors.blue),
-          onPressed: () => _updateQuantity(index, quantity + 1),
-          splashRadius: 20,
-        ),
-      ],
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Ionicons.cart_outline, size: 80, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'Ketuk "Tambah Produk" untuk memulai.',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildTotalsSection(NumberFormat formatter) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  Widget _buildProductListView() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(8.0),
+      itemCount: _items.length,
+      itemBuilder: (context, index) {
+        final item = _items[index];
+        final currencyFormatter = NumberFormat.currency(
+          locale: 'id_ID',
+          symbol: 'Rp ',
+          decimalDigits: 0,
+        );
+        return _OrderItemCard(
+          item: item, // Sekarang mengirim OrderItem
+          currencyFormatter: currencyFormatter,
+          onTap: () => _editItem(index),
+          onRemove: () => _removeProduct(index),
+        );
+      },
+    );
+  }
+
+  Widget _buildTotalsSection() {
+    final formatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    return Material(
+      elevation: 8,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(context).padding.bottom,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Detail Biaya', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
             TextField(
               controller: _shippingFeeController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Biaya Pengiriman',
                 prefixText: 'Rp ',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) => _calculateTotals(),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Subtotal Produk:', style: TextStyle(fontSize: 16)),
-                Text(formatter.format(_subtotal), style: const TextStyle(fontSize: 16)),
+                const Text('Subtotal Produk', style: TextStyle(fontSize: 14)),
+                Text(
+                  formatter.format(_subtotal),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
+            const Divider(),
+            const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Total Akhir:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Total Akhir',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 Text(
                   formatter.format(_total),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// LANGKAH 6: Widget Card sekarang menerima OrderItem
+class _OrderItemCard extends ConsumerWidget {
+  final OrderItem item;
+  final NumberFormat currencyFormatter;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  const _OrderItemCard({
+    required this.item,
+    required this.currencyFormatter,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildProductImage(item.imageUrl),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${item.quantity} x ${currencyFormatter.format(item.price)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Ionicons.trash_outline,
+                      color: Colors.redAccent,
+                    ),
+                    onPressed: onRemove,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    currencyFormatter.format(item.price * item.quantity),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductImage(String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8.0),
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => _buildImagePlaceholder(),
+          errorWidget: (context, url, error) => _buildImagePlaceholder(),
+        ),
+      );
+    } else {
+      return _buildImagePlaceholder();
+    }
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE0E6ED),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: const Icon(
+        Ionicons.cube_outline,
+        color: Color(0xFFBDC3C7),
+        size: 30,
       ),
     );
   }

@@ -47,6 +47,8 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
 
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
       final newPrice = double.tryParse(_priceController.text) ?? 0.0;
 
       // Buat produk yang diperbarui menggunakan copyWith
@@ -62,12 +64,12 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
         // Panggil provider untuk memperbarui produk
         await ref.read(productServiceProvider).updateProduct(updatedProduct);
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           const SnackBar(content: Text('Perubahan berhasil disimpan!')),
         );
-        Navigator.of(context).pop(); // Kembali setelah berhasil
+        navigator.pop(); // Kembali setelah berhasil
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Gagal menyimpan perubahan: $e')),
         );
       }
@@ -79,6 +81,9 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     showDialog(
       context: context,
       builder: (context) {
+        final navigator = Navigator.of(context);
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+
         return AlertDialog(
           title: const Text('Tambah Kategori Baru'),
           content: TextField(
@@ -87,7 +92,7 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
             autofocus: true,
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+            TextButton(onPressed: () => navigator.pop(), child: const Text('Batal')),
             TextButton(
               child: const Text('Tambah'),
               onPressed: () async {
@@ -95,12 +100,12 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
                 if (name.isNotEmpty) {
                   try {
                     await ref.read(addCategoryProvider(name).future);
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    navigator.pop();
+                    scaffoldMessenger.showSnackBar(
                       SnackBar(content: Text('Kategori "$name" berhasil ditambahkan.')),
                     );
                   } catch (e) {
-                     ScaffoldMessenger.of(context).showSnackBar(
+                     scaffoldMessenger.showSnackBar(
                       SnackBar(content: Text('Gagal menambah kategori: $e')),
                     );
                   }

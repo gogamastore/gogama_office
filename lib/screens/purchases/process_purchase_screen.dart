@@ -30,9 +30,11 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
 
     final cartItems = ref.read(purchaseCartProvider);
     final totalAmount = ref.read(purchaseTotalProvider);
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     if (cartItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Keranjang tidak boleh kosong!')),
       );
       return;
@@ -54,15 +56,15 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
       // Kosongkan keranjang setelah berhasil
       ref.read(purchaseCartProvider.notifier).clearCart();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Transaksi pembelian berhasil diproses dan disimpan!')),
       );
       
       // Kembali ke halaman sebelumnya
-      Navigator.of(context).pop();
+      navigator.pop();
 
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Gagal memproses transaksi: $e')),
       );
     } finally {
@@ -157,25 +159,42 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
 
             const Text('Metode Pembayaran', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
-            _buildPaymentMethodOption('cash', 'Cash', Icons.money_outlined),
-            _buildPaymentMethodOption('bank_transfer', 'Bank Transfer', Icons.account_balance_outlined),
-            // --- TAMBAHKAN OPSI CREDIT ---
-            _buildPaymentMethodOption('credit', 'Credit', Icons.credit_card_outlined),
+            RadioListTile<String>(
+              value: 'cash',
+              groupValue: _paymentMethod,
+              onChanged: (String? value) {
+                setState(() {
+                  _paymentMethod = value!;
+                });
+              },
+              title: const Text('Cash'),
+              secondary: const Icon(Icons.money_outlined, color: Color(0xFF5DADE2)),
+            ),
+            RadioListTile<String>(
+              value: 'bank_transfer',
+              groupValue: _paymentMethod,
+              onChanged: (String? value) {
+                setState(() {
+                  _paymentMethod = value!;
+                });
+              },
+              title: const Text('Bank Transfer'),
+              secondary: const Icon(Icons.account_balance_outlined, color: Color(0xFF5DADE2)),
+            ),
+            RadioListTile<String>(
+              value: 'credit',
+              groupValue: _paymentMethod,
+              onChanged: (String? value) {
+                setState(() {
+                  _paymentMethod = value!;
+                });
+              },
+              title: const Text('Credit'),
+              secondary: const Icon(Icons.credit_card_outlined, color: Color(0xFF5DADE2)),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPaymentMethodOption(String value, String title, IconData icon) {
-    return RadioListTile<String>(
-      value: value,
-      groupValue: _paymentMethod,
-      onChanged: (newValue) => setState(() => _paymentMethod = newValue!),
-      title: Text(title),
-      secondary: Icon(icon, color: const Color(0xFF5DADE2)),
-      controlAffinity: ListTileControlAffinity.trailing,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
 

@@ -1,71 +1,82 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
-import 'package:intl/intl.dart'; // PERBAIKAN DEFINITIF: IMPORT
 
 import '../models/order.dart';
+import '../models/product.dart';
 import '../models/order_product.dart';
+import '../models/order_item.dart'; // Impor OrderItem
 
 class OrderService {
   final _db = firestore.FirebaseFirestore.instance;
 
-  Future<List<Order>> getAllOrders() async {
-    firestore.Query query = _db.collection('orders').orderBy('date', descending: true);
-    
-    final snapshot = await query.get();
-    
-    return snapshot.docs.map((doc) {
-      try {
-        return Order.fromFirestore(doc as firestore.DocumentSnapshot);
-      } catch (e) {
-        print('Error parsing dokumen ${doc.id}: $e');
-        return null; 
-      }
-    }).where((order) => order != null).cast<Order>().toList();
-  }
+  Future<List<OrderProduct>> _enrichProducts(
+      List<OrderProduct> orderProducts) async {
+    if (orderProducts.isEmpty) return [];
 
-  Future<Map<String, int>> getOrdersByStatus() async {
-    final snapshot = await _db.collection('orders').get();
-    final Map<String, int> counts = {
-      'pending': 0,
-      'processing': 0,
-      'shipped': 0,
-      'delivered': 0,
-      'cancelled': 0,
+    final productIds = orderProducts.map((p) => p.productId).toSet().toList();
+    if (productIds.isEmpty) return [];
+
+    final productSnapshots = await _db
+        .collection('products')
+        .where(firestore.FieldPath.documentId, whereIn: productIds)
+        .get();
+
+    final productMap = {
+      for (var doc in productSnapshots.docs)
+        doc.id: Product.fromFirestore(doc)
     };
 
-    for (var doc in snapshot.docs) {
-      final status = (doc.data()['status'] as String?)?.toLowerCase().trim();
-      if (status != null && counts.containsKey(status)) {
-        counts[status] = (counts[status] ?? 0) + 1;
-      }
-    }
-    return counts;
+    return orderProducts.map((orderProduct) {
+      final productDetails = productMap[orderProduct.productId];
+      return orderProduct.copyWith(
+        name: productDetails?.name ?? orderProduct.name,
+        sku: productDetails?.sku,
+        imageUrl: productDetails?.image, // Gunakan 'image' dari Product
+      );
+    }).toList();
+  }
+
+  Future<List<Order>> getAllOrders() async {
+    final snapshot =
+        await _db.collection('orders').orderBy('date', descending: true).get();
+    final orders = snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList();
+
+    final enrichedOrders = await Future.wait(orders.map((order) async {
+      final enrichedProducts = await _enrichProducts(order.products);
+      return order.copyWith(products: enrichedProducts);
+    }));
+
+    return enrichedOrders;
   }
 
   Future<Order?> getOrderById(String orderId) async {
     final doc = await _db.collection('orders').doc(orderId).get();
     if (doc.exists) {
-      return Order.fromFirestore(doc as firestore.DocumentSnapshot);
+      final order = Order.fromFirestore(doc);
+      final enrichedProducts = await _enrichProducts(order.products);
+      return order.copyWith(products: enrichedProducts);
     }
     return null;
   }
 
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
-    String statusToUpdate = newStatus.isNotEmpty ? newStatus[0].toUpperCase() + newStatus.substring(1) : '';
     await _db.collection('orders').doc(orderId).update({
-      'status': statusToUpdate,
+      'status': newStatus,
       'updatedAt': firestore.Timestamp.now(),
     });
   }
 
-  Future<void> updateOrderDetails(String orderId, List<OrderProduct> products, double shippingFee, double newTotal) async {
+  // --- PERBAIKAN: Secara konsisten menerima List<OrderItem> untuk update ---
+  Future<void> updateOrderDetails(String orderId, List<OrderItem> products,
+      double shippingFee, double newTotal) async {
     final orderRef = _db.collection('orders').doc(orderId);
 
+    // Ubah List<OrderItem> menjadi List<Map<String, dynamic>> untuk Firestore
     final productsAsJson = products.map((p) => p.toJson()).toList();
 
     await orderRef.update({
       'products': productsAsJson,
       'shippingFee': shippingFee,
-      'total': 'Rp ${NumberFormat.decimalPattern('id_ID').format(newTotal)}',
+      'total': newTotal.toString(), // Simpan sebagai string untuk konsistensi
       'updatedAt': firestore.Timestamp.now(),
     });
   }

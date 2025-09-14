@@ -50,6 +50,9 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
       final name = _nameController.text;
       final sku = _skuController.text;
       final price = double.tryParse(_priceController.text) ?? 0.0;
@@ -57,7 +60,6 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
       final stock = int.tryParse(_stockController.text) ?? 0;
       final description = _descriptionController.text;
 
-      // Membuat objek Product baru
       final newProduct = Product(
         id: '', // ID akan digenerate oleh Firestore
         name: name,
@@ -71,17 +73,14 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
       );
 
       try {
-        // Memanggil provider untuk menambah produk baru
         await ref.read(productServiceProvider).addProduct(newProduct);
 
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Produk "$name" berhasil ditambahkan!')),
         );
-        Navigator.of(context).pop(); // Kembali setelah berhasil
+        navigator.pop(); // Kembali setelah berhasil
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Gagal menambah produk: $e')),
         );
       }
@@ -93,6 +92,10 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
     showDialog(
       context: context,
       builder: (context) {
+        // Simpan Navigator dan ScaffoldMessenger sebelum dialog
+        final navigator = Navigator.of(context);
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+
         return AlertDialog(
           title: const Text('Tambah Kategori Baru'),
           content: TextField(
@@ -101,7 +104,7 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
             autofocus: true,
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+            TextButton(onPressed: () => navigator.pop(), child: const Text('Batal')),
             TextButton(
               child: const Text('Tambah'),
               onPressed: () async {
@@ -109,14 +112,12 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
                 if (name.isNotEmpty) {
                   try {
                     await ref.read(addCategoryProvider(name).future);
-                    if(!mounted) return;
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    navigator.pop(); // Tutup dialog
+                    scaffoldMessenger.showSnackBar(
                       SnackBar(content: Text('Kategori "$name" berhasil ditambahkan.')),
                     );
                   } catch (e) {
-                     if(!mounted) return;
-                     ScaffoldMessenger.of(context).showSnackBar(
+                     scaffoldMessenger.showSnackBar(
                       SnackBar(content: Text('Gagal menambah kategori: $e')),
                     );
                   }

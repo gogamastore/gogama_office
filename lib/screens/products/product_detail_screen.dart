@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 import 'edit_product_screen.dart';
-import 'purchase_history_dialog.dart'; // Impor dialog riwayat
+import 'purchase_history_dialog.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -13,10 +13,10 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
 
   @override
-  _ProductDetailScreenState createState() => _ProductDetailScreenState();
+  ProductDetailScreenState createState() => ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
+class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   late Product _currentProduct;
 
   @override
@@ -33,22 +33,28 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  // Fungsi untuk menampilkan dialog riwayat pembelian
   void _showPurchaseHistory() {
     showDialog(
       context: context,
-      builder: (context) => PurchaseHistoryDialog(productId: _currentProduct.id),
+      builder: (context) =>
+          PurchaseHistoryDialog(productId: _currentProduct.id),
     );
   }
 
+  // --- PERBAIKAN DI FUNGSI INI ---
   Future<void> _deleteProduct() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Konfirmasi Hapus'),
-        content: Text('Apakah Anda yakin ingin menghapus produk "${_currentProduct.name}"?'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus produk "${_currentProduct.name}"?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Batal'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Hapus', style: TextStyle(color: Colors.red)),
@@ -59,59 +65,89 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     if (confirmed == true) {
       try {
-        await ref.read(productServiceProvider).deleteProduct(_currentProduct.id);
-        Navigator.of(context).pop(); 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('"${_currentProduct.name}" berhasil dihapus.')),
-        );
+        await ref
+            .read(productServiceProvider)
+            .deleteProduct(_currentProduct.id);
+
+        // --- SOLUSI: Cek apakah widget masih ada sebelum menggunakan context ---
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('"${_currentProduct.name}" berhasil dihapus.'),
+            ),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menghapus produk: $e')),
-        );
+        // --- SOLUSI: Cek juga di blok catch ---
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Gagal menghapus produk: $e')));
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-
-    ref.watch(allProductsProvider).when(
-      data: (products) {
-        final updatedProduct = products.firstWhere(
-          (p) => p.id == widget.product.id,
-          orElse: () => _currentProduct,
-        );
-        if (_currentProduct != updatedProduct) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() {
-                _currentProduct = updatedProduct;
-              });
-            }
-          });
-        }
-      },
-      loading: () {},
-      error: (err, stack) {},
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
     );
+
+    // Listener untuk update produk secara real-time
+    ref
+        .watch(allProductsProvider)
+        .when(
+          data: (products) {
+            try {
+              final updatedProduct = products.firstWhere(
+                (p) => p.id == widget.product.id,
+              );
+              if (_currentProduct != updatedProduct) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    // Pengecekan mounted sudah ada di sini, bagus!
+                    setState(() {
+                      _currentProduct = updatedProduct;
+                    });
+                  }
+                });
+              }
+            } catch (e) {
+              // Jika produk tidak ditemukan lagi (mungkin sudah terhapus)
+              // Kita bisa navigasi kembali atau menampilkan pesan
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  }
+                });
+              }
+            }
+          },
+          loading: () {},
+          error: (err, stack) {},
+        );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_currentProduct.name),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit), 
+            icon: const Icon(Icons.edit),
             tooltip: 'Edit Produk',
             onPressed: _navigateToEditScreen,
           ),
           IconButton(
-            icon: const Icon(Icons.history), 
+            icon: const Icon(Icons.history),
             tooltip: 'Lihat Log Stok',
-            onPressed: _showPurchaseHistory, // Panggil fungsi riwayat
+            onPressed: _showPurchaseHistory,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline), 
+            icon: const Icon(Icons.delete_outline),
             tooltip: 'Hapus Produk',
             onPressed: _deleteProduct,
           ),
@@ -139,13 +175,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         tag: 'product-image-${_currentProduct.id}',
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12.0),
-          child: (_currentProduct.image != null && _currentProduct.image!.isNotEmpty)
+          child:
+              (_currentProduct.image != null &&
+                  _currentProduct.image!.isNotEmpty)
               ? Image.network(
                   _currentProduct.image!,
                   fit: BoxFit.cover,
                   height: 250,
                   width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                  errorBuilder: (context, error, stackTrace) =>
+                      _buildImagePlaceholder(),
                 )
               : _buildImagePlaceholder(),
         ),
@@ -155,11 +194,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildImagePlaceholder() {
     return Container(
-      height: 250,
+      height: 270,
       width: double.infinity,
       color: const Color(0xFFE0E6ED),
       child: const Center(
-        child: Icon(Icons.image_not_supported, color: Color(0xFFBDC3C7), size: 80),
+        child: Icon(
+          Icons.image_not_supported,
+          color: Color(0xFFBDC3C7),
+          size: 80,
+        ),
       ),
     );
   }
@@ -170,7 +213,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       children: [
         Text(
           _currentProduct.name,
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2C3E50),
+          ),
         ),
         if (_currentProduct.sku != null && _currentProduct.sku!.isNotEmpty)
           Padding(
@@ -192,7 +239,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             _buildInfoTile(
               title: 'Stok Saat Ini',
               value: _currentProduct.stock.toString(),
-              valueColor: _currentProduct.stock > 10 ? const Color(0xFF27AE60) : const Color(0xFFE74C3C),
+              valueColor: _currentProduct.stock > 10
+                  ? const Color(0xFF27AE60)
+                  : const Color(0xFFE74C3C),
               isRightAligned: true,
             ),
           ],
@@ -201,9 +250,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _buildInfoTile({required String title, required String value, Color? valueColor, bool isRightAligned = false}) {
+  Widget _buildInfoTile({
+    required String title,
+    required String value,
+    Color? valueColor,
+    bool isRightAligned = false,
+  }) {
     return Column(
-      crossAxisAlignment: isRightAligned ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isRightAligned
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(
           title,
@@ -228,14 +284,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       children: [
         const Text(
           'Deskripsi',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2C3E50),
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          (_currentProduct.description != null && _currentProduct.description!.isNotEmpty)
+          (_currentProduct.description != null &&
+                  _currentProduct.description!.isNotEmpty)
               ? _currentProduct.description!
               : 'Tidak ada deskripsi untuk produk ini.',
-          style: const TextStyle(fontSize: 16, color: Color(0xFF34495E), height: 1.5),
+          style: const TextStyle(
+            fontSize: 16,
+            color: Color(0xFF34495E),
+            height: 1.5,
+          ),
         ),
       ],
     );

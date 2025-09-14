@@ -14,28 +14,46 @@ Aplikasi ini adalah sistem manajemen inventory yang dirancang untuk membantu pen
 - **Manajemen Produk:** CRUD (Create, Read, Update, Delete) untuk produk.
 - **Manajemen Supplier:** CRUD untuk supplier.
 - **Manajemen Pembelian:** Membuat keranjang pembelian, mengedit item, dan memproses transaksi.
+- **Manajemen Pesanan:** CRUD (Create, Read, Update, Delete) untuk pesanan pelanggan.
 - **Dashboard Utama:** Pusat navigasi aplikasi.
 
 ### Gaya & Desain
 - **UI:** Menggunakan komponen Material Design 3.
-- **Tampilan Pembelian (Lama):** Menggunakan `Card` untuk daftar produk dan FAB untuk akses ke keranjang.
+- **Tampilan Daftar:** Menggunakan `ListView.builder` dengan `Card` untuk menampilkan item.
 
-## Rencana Perubahan Saat Ini: Refactor Alur Pembelian & Perbaikan Kritis
+## Rencana Perubahan Saat Ini: Implementasi Fitur Validasi Pesanan (POS)
 
 ### Tujuan
-Menyempurnakan alur pembelian secara menyeluruh, mulai dari tampilan hingga logika penyimpanan data, untuk meningkatkan UX dan memperbaiki bug kritis.
+Membuat alur kerja baru untuk memvalidasi item dalam pesanan menggunakan pemindai barcode sebelum mengubah status pesanan menjadi "Processing". Ini bertujuan untuk meningkatkan akurasi dan efisiensi dalam proses pemenuhan pesanan.
 
 ### Langkah-langkah Implementasi
-1.  **Perbaikan Kritis Struktur Data Firestore (`purchase_service.dart`):**
-    *   Mengubah total logika penyimpanan agar sesuai dengan struktur data yang diinginkan pengguna untuk mengatasi error `insufficient permissions`.
-    *   **Koleksi `purchase_transactions`:** Menyimpan satu dokumen per transaksi. Dokumen ini akan berisi *array* `items` yang mencakup semua produk yang dibeli.
-    *   **Koleksi `purchase_history`:** Membuat satu dokumen terpisah untuk *setiap* item produk dalam transaksi. Dokumen ini akan berisi detail item dan ID transaksi terkait.
-    *   Semua operasi (pembuatan transaksi, pembuatan riwayat, dan pembaruan stok produk) akan tetap menggunakan `WriteBatch` untuk menjamin konsistensi data.
 
-2.  **Refactor UI Halaman Pembelian (`purchases_screen.dart`):**
-    *   Menghapus seluruh sistem paginasi (halaman) untuk menampilkan semua hasil pencarian dalam satu daftar yang bisa di-*scroll*.
+1.  **Persiapan Aset & Dependensi:**
+    *   Menambahkan package `audioplayers` ke `pubspec.yaml` untuk umpan balik suara.
+    *   Membuat folder `assets/sounds/` dan meminta pengguna untuk menambahkan file `success.mp3` dan `error.mp3`.
+    *   Mendeklarasikan folder aset di `pubspec.yaml`.
 
-3.  **Refactor UI Halaman Keranjang (`purchase_cart_screen.dart`):**
-    *   Mengubah tampilan daftar item di keranjang agar mirip dengan daftar produk di halaman manajemen produk (menggunakan `ListTile` atau `Card` yang informatif).
-    *   Menghapus tombol-tombol edit (+, -) yang ada di baris item.
-    *   Menerapkan fungsionalitas di mana mengetuk (tap) pada sebuah item di keranjang akan memunculkan dialog `EditPurchaseCartItemDialog` untuk mengubah jumlah atau harga.
+2.  **Tombol Validasi di Detail Pesanan:**
+    *   Memodifikasi `lib/screens/orders/order_detail_screen.dart`.
+    *   Menambahkan tombol "Validasi Pesanan" yang hanya muncul jika status pesanan adalah "Pending".
+    *   Tombol ini akan menavigasikan pengguna ke halaman validasi baru.
+
+3.  **Membuat Halaman Validasi Pesanan:**
+    *   Membuat file baru: `lib/screens/orders/validate_order_screen.dart`.
+    *   Halaman ini akan berisi:
+        *   `TextField` untuk input barcode EAN-13.
+        *   Daftar produk dalam pesanan, dengan status visual "belum divalidasi" atau "sudah divalidasi".
+        *   Logika validasi real-time saat barcode di-scan.
+        *   Umpan balik suara (sukses/gagal) saat validasi.
+        *   Dialog untuk mengonfirmasi/mengedit jumlah saat produk berhasil divalidasi.
+        *   Tombol "Konfirmasi" di bagian bawah yang akan aktif hanya setelah semua item divalidasi.
+
+4.  **Membuat Halaman Ringkasan Validasi:**
+    *   Membuat file baru: `lib/screens/orders/validated_order_summary_screen.dart`.
+    *   Halaman ini akan menampilkan daftar produk yang sudah divalidasi.
+    *   Akan ada tombol "Proses Pesanan" di bagian bawah.
+
+5.  **Memperbarui Status Pesanan:**
+    *   Menambahkan fungsi `updateOrderStatus(String orderId, String status)` di `lib/services/order_service.dart`.
+    *   Mengekspos fungsi ini melalui `OrderProvider` di `lib/providers/order_provider.dart`.
+    *   Tombol "Proses Pesanan" akan memanggil fungsi ini untuk mengubah status di Firestore menjadi "Processing".

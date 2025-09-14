@@ -11,10 +11,10 @@ class MainTabController extends ConsumerStatefulWidget {
   const MainTabController({super.key});
 
   @override
-  _MainTabControllerState createState() => _MainTabControllerState();
+  MainTabControllerState createState() => MainTabControllerState();
 }
 
-class _MainTabControllerState extends ConsumerState<MainTabController> {
+class MainTabControllerState extends ConsumerState<MainTabController> {
   int _selectedIndex = 0;
   static final List<Widget> _widgetOptions = <Widget>[
     const DashboardScreen(),

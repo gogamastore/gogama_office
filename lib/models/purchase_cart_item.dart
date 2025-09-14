@@ -34,11 +34,11 @@ class PurchaseCartItem {
         price: 0, // Harga jual tidak disimpan di item, default ke 0
         stock: 0, // Stok tidak relevan dalam konteks item keranjang, default ke 0
         // Harga beli tersedia di dalam map
-        purchasePrice: (map['purchasePrice' as num?])?.toDouble() ?? 0.0,
-        lastPurchasePrice: (map['purchasePrice' as num?])?.toDouble() ?? 0.0,
+        purchasePrice: (map['purchasePrice'])?.toDouble() ?? 0.0,
+        lastPurchasePrice: (map['purchasePrice'])?.toDouble() ?? 0.0,
       ),
-      quantity: (map['quantity' as num?])?.toInt() ?? 0,
-      purchasePrice: (map['purchasePrice' as num?])?.toDouble() ?? 0.0,
+      quantity: (map['quantity'])?.toInt() ?? 0,
+      purchasePrice: (map['purchasePrice'])?.toDouble() ?? 0.0,
     );
   }
   

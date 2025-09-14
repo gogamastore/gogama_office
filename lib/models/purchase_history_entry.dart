@@ -3,9 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PurchaseHistoryEntry {
   final String id;
   final String productId;
-  final DateTime purchaseDate;
+  final Timestamp purchaseDate;
   final int quantity;
-  // PERBAIKAN: Mengganti nama `unitPrice` menjadi `purchasePrice` agar konsisten
   final double purchasePrice;
   final String? supplierName;
 
@@ -14,24 +13,25 @@ class PurchaseHistoryEntry {
     required this.productId,
     required this.purchaseDate,
     required this.quantity,
-    required this.purchasePrice, // Diperbarui
+    required this.purchasePrice,
     this.supplierName,
   });
 
-  // Computed property untuk total biaya
-  double get totalCost => quantity * purchasePrice; // Diperbarui
-
-  // Factory constructor untuk membuat instance dari DocumentSnapshot Firestore
+  // Factory constructor untuk membuat instance dari Firestore DocumentSnapshot
   factory PurchaseHistoryEntry.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>;
     return PurchaseHistoryEntry(
       id: doc.id,
-      productId: data['productId'] ?? '',
-      purchaseDate: (data['purchaseDate'] as Timestamp).toDate(),
-      quantity: data['quantity'] ?? 0,
-      // Diperbarui untuk membaca field 'price' dan mengassign ke `purchasePrice`
-      purchasePrice: (data['price'] as num?)?.toDouble() ?? 0.0, 
+      productId: data['productId'] as String,
+      purchaseDate: data['purchaseDate'] as Timestamp,
+      // Pastikan quantity dibaca sebagai int, default ke 0 jika null
+      quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+      // Pastikan purchasePrice dibaca sebagai double, default ke 0.0 jika null
+      purchasePrice: (data['purchasePrice'] as num?)?.toDouble() ?? 0.0,
       supplierName: data['supplierName'] as String?,
     );
   }
+
+  // Kalkulasi subtotal untuk kemudahan
+  double get subtotal => quantity * purchasePrice;
 }

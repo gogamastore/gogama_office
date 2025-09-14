@@ -10,11 +10,9 @@ class AddToPurchaseCartDialog extends ConsumerStatefulWidget {
   const AddToPurchaseCartDialog({super.key, required this.product});
 
   @override
-  // PERBAIKAN 1: Mengubah state class menjadi public
   AddToPurchaseCartDialogState createState() => AddToPurchaseCartDialogState();
 }
 
-// PERBAIKAN 1: Mengubah nama state class menjadi public
 class AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog> {
   final _formKey = GlobalKey<FormState>();
   int _quantity = 1;
@@ -30,11 +28,10 @@ class AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      // PERBAIKAN 2 & 3: Menggunakan nama metode yang benar (`addItem`) dan urutan argumen yang benar
       ref.read(purchaseCartProvider.notifier).addItem(
             widget.product,
-            _quantity,       // Argumen 1: quantity
-            _purchasePrice,  // Argumen 2: price
+            _quantity,
+            _purchasePrice,
           );
 
       Navigator.of(context).pop();
@@ -46,16 +43,20 @@ class AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return AlertDialog(
-      title: const Text('Tambah ke Keranjang Pembelian'),
+      // --- PERUBAHAN: Menggunakan style yang lebih kecil untuk judul dialog ---
+      title: Text('Tambah ke Keranjang', style: textTheme.titleLarge),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.product.name, style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 16),
+            // --- PERUBAHAN: Menggunakan style yang lebih normal untuk nama produk ---
+            Text(widget.product.name, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 24),
             TextFormField(
               initialValue: _quantity.toString(),
               decoration: const InputDecoration(labelText: 'Jumlah', border: OutlineInputBorder()),
@@ -71,16 +72,16 @@ class AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog
             const SizedBox(height: 16),
             TextFormField(
               key: Key(_purchasePrice.toString()),
-              initialValue: _purchasePrice.toStringAsFixed(2),
+              initialValue: _purchasePrice.toStringAsFixed(0), // Menghilangkan desimal untuk harga
               decoration: const InputDecoration(labelText: 'Harga Beli per Unit', prefixText: 'Rp ', border: OutlineInputBorder()),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: false), // Keyboard angka saja
               validator: (value) {
-                if (value == null || double.tryParse(value.replaceAll(',', '.')) == null || double.parse(value.replaceAll(',', '.')) < 0) {
+                if (value == null || double.tryParse(value.replaceAll('.', '')) == null || double.parse(value.replaceAll('.', '')) < 0) {
                   return 'Masukkan harga yang valid.';
                 }
                 return null;
               },
-              onSaved: (value) => _purchasePrice = double.parse(value!.replaceAll(',', '.')),
+              onSaved: (value) => _purchasePrice = double.parse(value!.replaceAll('.', '')),
             ),
           ],
         ),

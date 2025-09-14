@@ -9,11 +9,21 @@ import '../../models/dashboard_data.dart';
 import '../../models/sales_data.dart';
 import '../../models/order.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  DashboardScreenState createState() => DashboardScreenState();
+}
+
+class DashboardScreenState extends ConsumerState<DashboardScreen> {
+  Future<void> _refreshData() async {
+    await ref.refresh(dashboardDataProvider.future);
+    await ref.refresh(salesAnalyticsProvider.future);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dashboardDataAsync = ref.watch(dashboardDataProvider);
     final salesDataAsync = ref.watch(salesAnalyticsProvider);
     final user = ref.watch(authStateChangesProvider).value;
@@ -21,10 +31,7 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: RefreshIndicator(
-        onRefresh: () async {
-          ref.refresh(dashboardDataProvider);
-          ref.refresh(salesAnalyticsProvider);
-        },
+        onRefresh: _refreshData,
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(20.0),

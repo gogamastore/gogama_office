@@ -1,13 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:myapp/screens/orders/validate_order_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/formatter.dart';
-// HAPUS DIALOG LAMA, GUNAKAN HALAMAN BARU
 import './edit_order_screen.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
@@ -30,12 +31,13 @@ class OrderDetailScreen extends ConsumerWidget {
           orderAsync.when(
             data: (order) {
               if (order == null) return const SizedBox.shrink();
+              if (order.status == 'delivered' || order.status == 'cancelled') {
+                 return const SizedBox.shrink();
+              }
               return IconButton(
                 icon: const Icon(Ionicons.create_outline),
                 tooltip: 'Edit Pesanan',
-                // --- PERUBAHAN UTAMA DI SINI ---
                 onPressed: () {
-                  // Ganti showDialog menjadi Navigator.push
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => EditOrderScreen(order: order),
@@ -51,7 +53,7 @@ class OrderDetailScreen extends ConsumerWidget {
       ),
       body: orderAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Gagal memuat: $err')),
+        error: (err, stack) => Center(child: Text('Gagal memuat: $err')), 
         data: (order) {
           if (order == null) {
             return const Center(child: Text('Pesanan tidak ditemukan.'));
@@ -70,15 +72,39 @@ class OrderDetailScreen extends ConsumerWidget {
         const SizedBox(height: 12),
         _buildCustomerCard(order),
         const SizedBox(height: 12),
-        _buildProductsCard(order),
+        _buildProductsCard(context, order), // Pass context
         const SizedBox(height: 12),
         _buildPaymentInfoCard(context, order),
         const SizedBox(height: 12),
         _buildShippingInfoCard(order),
         const SizedBox(height: 20),
+        _buildValidateButton(context, order),
+        const SizedBox(height: 12),
         _buildCancelButton(context, ref, order),
       ],
     );
+  }
+  
+  Widget _buildValidateButton(BuildContext context, Order order) {
+    if (order.status == 'pending') {
+      return ElevatedButton.icon(
+        icon: const Icon(Ionicons.scan_outline, color: Colors.white),
+        label: const Text('Validasi Pesanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => ValidateOrderScreen(order: order),
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Theme.of(context).primaryColor,
+          minimumSize: const Size(double.infinity, 50),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildInfoCard(Order order) {
@@ -97,7 +123,7 @@ class OrderDetailScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: getStatusColor(order.status).withOpacity(0.13),
+                color: Color.alphaBlend(getStatusColor(order.status).withAlpha(33), Colors.white),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -122,7 +148,6 @@ class OrderDetailScreen extends ConsumerWidget {
         const Text('Detail Pelanggan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
         _buildCustomerDetailRow(Ionicons.person_outline, order.customer),
-        _buildCustomerDetailRow(Ionicons.call_outline, order.customerPhone),
         _buildCustomerDetailRow(Ionicons.location_outline, order.customerAddress, isLast: true),
       ],
     );
@@ -141,7 +166,8 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProductsCard(Order order) {
+  // --- MODIFIKASI: Menampilkan gambar dan SKU ---
+  Widget _buildProductsCard(BuildContext context, Order order) {
     final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final subtotal = order.products.fold(0.0, (sum, p) => sum + (p.price * p.quantity));
 
@@ -149,25 +175,39 @@ class OrderDetailScreen extends ConsumerWidget {
       children: [
         const Text('Produk Dipesan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
-        ...order.products.map((p) => Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Row(
+        ...order.products.map((p) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: CachedNetworkImage(
+                  imageUrl: p.imageUrl ?? '',
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    width: 50,
+                    height: 50,
+                    color: Colors.grey[200],
+                    child: const Icon(Ionicons.image_outline, color: Colors.grey),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 50,
+                    height: 50,
+                    color: Colors.grey[200],
+                    child: const Icon(Ionicons.alert_circle_outline, color: Colors.red),
+                  ),
+                ),
+              ),
+              title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text('${p.quantity} x ${formatter.format(p.price)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(formatter.format(p.price * p.quantity), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (p.sku != null && p.sku!.isNotEmpty)
+                    Text('SKU: ${p.sku}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  Text('${p.quantity} x ${formatter.format(p.price)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
                 ],
               ),
+              trailing: Text(formatter.format(p.price * p.quantity), style: const TextStyle(fontWeight: FontWeight.bold)),
             )),
         const Divider(height: 20),
         _buildSummaryRow('Subtotal', subtotal),
@@ -184,6 +224,7 @@ class OrderDetailScreen extends ConsumerWidget {
       children: [
         const Text('Informasi Pembayaran', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
+        // ... (rest of the payment info widget)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -191,7 +232,7 @@ class OrderDetailScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: getPaymentStatusColor(order.paymentStatus).withOpacity(0.15),
+                color: Color.alphaBlend(getPaymentStatusColor(order.paymentStatus).withAlpha(38), Colors.white),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -225,14 +266,16 @@ class OrderDetailScreen extends ConsumerWidget {
               onPressed: () async {
                 final Uri url = Uri.parse(order.paymentProofUrl!);
                 if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Gagal membuka URL.')),
-                  );
+                   if(context.mounted){
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Gagal membuka URL.')),
+                    );
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
                 foregroundColor: Theme.of(context).primaryColor,
-                backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                backgroundColor: Color.alphaBlend(Theme.of(context).primaryColor.withAlpha(25), Colors.white),
                 elevation: 0,
               ),
             ),
@@ -277,8 +320,44 @@ class OrderDetailScreen extends ConsumerWidget {
       return ElevatedButton.icon(
         icon: const Icon(Ionicons.close_circle_outline, color: Colors.white),
         label: const Text('Batalkan Pesanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        onPressed: () {
-          // Logika untuk membatalkan pesanan
+        onPressed: () async {
+          final bool? confirmed = await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Konfirmasi Pembatalan'),
+              content: const Text('Apakah Anda yakin ingin membatalkan pesanan ini?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Tidak'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Ya, Batalkan', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          );
+
+          if (confirmed == true) {
+            try {
+              await ref.read(orderServiceProvider).updateOrderStatus(order.id, 'cancelled');
+              ref.invalidate(orderProvider);
+              ref.invalidate(orderDetailsProvider(order.id));
+              
+              if(context.mounted){
+                 ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Pesanan berhasil dibatalkan.'), backgroundColor: Colors.green),
+                 );
+              }
+            } catch (e) {
+              if(context.mounted){
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Gagal membatalkan pesanan: $e'), backgroundColor: Colors.red),
+                );
+              }
+            }
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.redAccent,
@@ -298,7 +377,7 @@ class OrderDetailScreen extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Color.alphaBlend(Colors.black.withAlpha(12), Colors.transparent),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )

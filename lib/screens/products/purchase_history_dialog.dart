@@ -1,41 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../models/purchase_history_entry.dart';
+import '../../providers/product_provider.dart';
 
-class PurchaseHistoryDialog extends StatelessWidget {
+// --- PERUBAHAN: Diubah menjadi ConsumerWidget untuk menggunakan Riverpod ---
+class PurchaseHistoryDialog extends ConsumerWidget {
   final String productId;
 
   const PurchaseHistoryDialog({super.key, required this.productId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
+    // --- PERUBAHAN: Menggunakan purchaseHistoryProvider yang baru ---
+    final historyAsync = ref.watch(purchaseHistoryProvider(productId));
 
     return AlertDialog(
-      title: const Text('Riwayat Pembelian'),
+      title: const Text('Riwayat Pembelian Produk'),
       content: SizedBox(
         width: double.maxFinite,
-        // PERBAIKAN: Query ke koleksi 'purchase_history' yang benar
-        child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('purchase_history') // <-- TARGET KOLEKSI YANG BENAR
-              .where('productId', isEqualTo: productId)
-              .orderBy('purchaseDate', descending: true)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+        child: historyAsync.when(
+          data: (entries) {
+            if (entries.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: Text('Belum ada riwayat pembelian untuk produk ini.', textAlign: TextAlign.center),
+                ),
+              );
             }
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return const Center(child: Text('Belum ada riwayat pembelian untuk produk ini.'));
-            }
-
-            final entries = snapshot.data!.docs.map((doc) {
-              return PurchaseHistoryEntry.fromFirestore(doc);
-            }).toList();
-
             return ListView.builder(
               shrinkWrap: true,
               itemCount: entries.length,
@@ -43,29 +37,41 @@ class PurchaseHistoryDialog extends StatelessWidget {
                 final entry = entries[index];
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 6),
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
                   child: ListTile(
-                    title: Text('Tanggal: ${DateFormat('dd MMM yyyy, HH:mm').format(entry.purchaseDate)}'),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    title: Text(
+                      DateFormat('dd MMMM yyyy, HH:mm').format(entry.purchaseDate.toDate()),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Jumlah: ${entry.quantity}'),
-                        Text('Harga Beli: ${currencyFormatter.format(entry.purchasePrice)}'),
-                        // Tampilkan nama supplier jika ada
-                        if (entry.supplierName != null && entry.supplierName!.isNotEmpty)
-                           Text('Supplier: ${entry.supplierName}'),
+                        const SizedBox(height: 6),
+                        Text('Supplier: ${entry.supplierName ?? "-"}'),
                         const SizedBox(height: 4),
+                        Text('Harga Beli: ${currencyFormatter.format(entry.purchasePrice)}'),
+                        const SizedBox(height: 4),
+                        Text('Jumlah: ${entry.quantity} pcs'),
+                        const Divider(height: 16),
                         Text(
-                          'Total: ${currencyFormatter.format(entry.quantity * entry.purchasePrice)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          'Total: ${currencyFormatter.format(entry.subtotal)} ',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
                         ),
                       ],
                     ),
-                     isThreeLine: true, // Beri ruang lebih untuk baris tambahan
+                    isThreeLine: true,
                   ),
                 );
               },
             );
           },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Center(child: Text('Gagal memuat riwayat: $err')),
         ),
       ),
       actions: [

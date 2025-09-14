@@ -5,17 +5,16 @@ import 'package:ionicons/ionicons.dart';
 
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
-import './order_detail_screen.dart'; // Import halaman detail
+import './order_detail_screen.dart';
 
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeFilter = ref.watch(orderFilterProvider);
-    // PERBAIKAN: Langsung watch provider yang sudah disederhanakan.
-    final statusCounts = ref.watch(orderStatusCountsProvider);
-    final allOrdersAsync = ref.watch(orderProvider);
+    final ordersAsyncValue = ref.watch(orderProvider);
+    // PERBAIKAN: Panggil provider tanpa argumen. Ia akan otomatis bereaksi pada filter.
+    final filteredOrders = ref.watch(filteredOrdersProvider);
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -25,22 +24,17 @@ class OrdersScreen extends ConsumerWidget {
           children: [
             _buildHeader(textTheme),
             _buildSearchBar(),
-            // PERBAIKAN: Widget filter sekarang menggunakan data langsung dari statusCounts.
-            // Kondisi loading/error dari `orderProvider` akan secara otomatis meng-handle ini.
-            _buildFiltersContainer(context, ref, statusCounts),
+            _buildFiltersContainer(context, ref),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () => ref.read(orderProvider.notifier).refresh(),
-                child: allOrdersAsync.when(
+                child: ordersAsyncValue.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Terjadi Kesalahan: $err')),
-                  data: (allOrders) {
-                    final filteredOrders = ref.watch(filteredOrdersProvider(activeFilter));
-                    
+                  data: (_) { // Data tidak perlu digunakan langsung, karena filteredOrders sudah di-handle
                     if (filteredOrders.isEmpty) {
-                      return _buildEmptyState(activeFilter);
+                      return _buildEmptyState(ref.watch(orderFilterProvider));
                     }
-
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       itemCount: filteredOrders.length,
@@ -99,9 +93,11 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFiltersContainer(BuildContext context, WidgetRef ref, Map<String, int> counts) {
+  Widget _buildFiltersContainer(BuildContext context, WidgetRef ref) {
     final activeFilter = ref.watch(orderFilterProvider);
+    final counts = ref.watch(orderStatusCountsProvider);
     final statusFilters = [
+      {'key': 'all', 'label': 'Semua'},
       {'key': 'pending', 'label': 'Belum Proses'},
       {'key': 'processing', 'label': 'Perlu Dikirim'},
       {'key': 'shipped', 'label': 'Dikirim'},
@@ -117,7 +113,7 @@ class OrdersScreen extends ConsumerWidget {
           children: statusFilters.map((filter) {
             final key = filter['key']!;
             final label = filter['label']!;
-            final count = counts[key] ?? 0;
+            final count = key == 'all' ? (ref.watch(orderProvider).value?.length ?? 0) : (counts[key] ?? 0);
             final isActive = activeFilter == key;
 
             return GestureDetector(
@@ -166,7 +162,7 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
+    Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final double totalValue = double.tryParse(order.total.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
 
@@ -183,7 +179,7 @@ class OrdersScreen extends ConsumerWidget {
         margin: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 2,
-        shadowColor: Colors.black.withAlpha(25), // PERBAIKAN: Menggunakan withAlpha (10% dari 255)
+        shadowColor: Colors.black.withAlpha(25),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -208,7 +204,7 @@ class OrdersScreen extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(order.status).withAlpha(33), // PERBAIKAN: Menggunakan withAlpha (sekitar 13% dari 255)
+                      color: _getStatusColor(order.status).withAlpha(33),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -356,6 +352,7 @@ class OrdersScreen extends ConsumerWidget {
 
   String _getStatusText(String status) {
     switch (status) {
+      case 'all': return 'Semua';
       case 'delivered': return 'Selesai';
       case 'shipped': return 'Dikirim';
       case 'processing': return 'Perlu Dikirim';

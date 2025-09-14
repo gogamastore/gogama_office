@@ -3,19 +3,18 @@ import './order_product.dart';
 
 // --- FUNGSI HELPER UNTUK PARSING YANG AMAN ---
 
-// Mengubah berbagai jenis data tanggal (Timestamp, DateTime) menjadi Timestamp
+// ... (helper functions exist here, no changes needed)
 Timestamp _parseDate(dynamic date) {
   if (date is Timestamp) {
-    return date; // Tipe sudah benar (umumnya dari mobile)
+    return date; // Tipe sudah benar
   }
   if (date is DateTime) {
-    return Timestamp.fromDate(date); // Handle jika datanya DateTime (terkadang dari web)
+    return Timestamp.fromDate(date); // Handle jika datanya DateTime
   }
   // Fallback jika data null atau tipe tidak dikenal
   return Timestamp.now();
 }
 
-// Mengubah berbagai jenis data angka (double, int, String) menjadi double
 double? _parseDouble(dynamic value) {
   if (value is double) return value;
   if (value is int) return value.toDouble();
@@ -24,6 +23,19 @@ double? _parseDouble(dynamic value) {
   }
   return null;
 }
+
+String _parseString(dynamic value, {String defaultValue = ''}) {
+  if (value == null) return defaultValue;
+  if (value is String) return value;
+  return value.toString();
+}
+
+String? _parseStringOrNull(dynamic value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  return value.toString();
+}
+
 
 class Order {
   final String id;
@@ -58,12 +70,11 @@ class Order {
     this.updatedAt,
   });
 
-  // FACTORY CONSTRUCTOR YANG SUDAH DIPERKUAT
   factory Order.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    Map<String, dynamic> customerDetails = data['customerDetails'] as Map<String, dynamic>? ?? {};
+    Map<String, dynamic> customerDetails =
+        data['customerDetails'] as Map<String, dynamic>? ?? {};
 
-    // Logika parsing total yang sudah ada (dipertahankan)
     dynamic totalValue = data['total'];
     String totalString;
     if (totalValue is num) {
@@ -76,30 +87,63 @@ class Order {
 
     return Order(
       id: doc.id,
-      customer: data['customer'] ?? 'N/A',
-      customerPhone: customerDetails['whatsapp'] ?? '-',
-      customerAddress: customerDetails['address'] ?? '-',
-      
-      // Menggunakan helper untuk parsing tanggal yang aman
+      customer: _parseString(data['customer'], defaultValue: 'N/A'),
+      customerPhone: _parseString(customerDetails['whatsapp'], defaultValue: '-'),
+      customerAddress: _parseString(customerDetails['address'], defaultValue: '-'),
       date: _parseDate(data['date']),
-      
-      status: data['status']?.toLowerCase() ?? 'pending',
-      total: totalString,
-      
-      paymentMethod: data['paymentMethod'] ?? 'N/A',
-      paymentStatus: data['paymentStatus']?.toLowerCase() ?? 'unpaid',
-      paymentProofUrl: data['paymentProofUrl'],
-      
-      shippingMethod: data['shippingMethod'] ?? 'N/A',
-      // Menggunakan helper untuk parsing biaya kirim yang aman
+      status: _parseString(data['status'], defaultValue: 'pending').toLowerCase(),
+      total: totalString, 
+      paymentMethod: _parseString(data['paymentMethod'], defaultValue: 'N/A'),
+      paymentStatus: _parseString(data['paymentStatus'], defaultValue: 'unpaid').toLowerCase(),
+      paymentProofUrl: _parseStringOrNull(data['paymentProofUrl']),
+      shippingMethod: _parseString(data['shippingMethod'], defaultValue: 'N/A'),
       shippingFee: _parseDouble(data['shippingFee']),
-      
       products: (data['products'] as List<dynamic>?)
-              ?.map((item) => OrderProduct.fromJson(item as Map<String, dynamic>))
+              ?.map(
+                  (item) => OrderProduct.fromJson(item as Map<String, dynamic>))
               .toList() ??
           [],
-      // Menggunakan helper untuk parsing tanggal update yang aman
-      updatedAt: data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
+      updatedAt:
+          data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
+    );
+  }
+
+  // --- PENAMBAHAN: Metode copyWith ---
+  Order copyWith({
+    String? id,
+    String? customer,
+    String? customerPhone,
+    String? customerAddress,
+    Timestamp? date,
+    String? status,
+    String? total,
+    String? paymentMethod,
+    String? paymentStatus,
+    // Izinkan null untuk tipe data yang bisa null
+    String? paymentProofUrl,
+    bool allowNullPaymentProofUrl = false,
+    String? shippingMethod,
+    double? shippingFee,
+    bool allowNullShippingFee = false,
+    List<OrderProduct>? products,
+    Timestamp? updatedAt,
+    bool allowNullUpdatedAt = false,
+  }) {
+    return Order(
+      id: id ?? this.id,
+      customer: customer ?? this.customer,
+      customerPhone: customerPhone ?? this.customerPhone,
+      customerAddress: customerAddress ?? this.customerAddress,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      total: total ?? this.total,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentProofUrl: allowNullPaymentProofUrl ? paymentProofUrl : (paymentProofUrl ?? this.paymentProofUrl),
+      shippingMethod: shippingMethod ?? this.shippingMethod,
+      shippingFee: allowNullShippingFee ? shippingFee : (shippingFee ?? this.shippingFee),
+      products: products ?? this.products,
+      updatedAt: allowNullUpdatedAt ? updatedAt : (updatedAt ?? this.updatedAt),
     );
   }
 }
