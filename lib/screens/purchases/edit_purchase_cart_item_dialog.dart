@@ -25,7 +25,7 @@ class _EditPurchaseCartItemDialogState extends ConsumerState<EditPurchaseCartIte
     super.initState();
     _quantity = widget.cartItem.quantity;
     _purchasePrice = widget.cartItem.purchasePrice;
-    _priceController.text = _purchasePrice.toString();
+    _priceController.text = _purchasePrice.toStringAsFixed(0); // Menghilangkan desimal
   }
 
   @override
@@ -37,48 +37,41 @@ class _EditPurchaseCartItemDialogState extends ConsumerState<EditPurchaseCartIte
   void _submit() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      // Menggunakan nama metode yang BENAR
-      ref.read(purchaseCartProvider.notifier).updateQuantity(widget.cartItem.product.id, _quantity);
-      ref.read(purchaseCartProvider.notifier).updatePrice(widget.cartItem.product.id, _purchasePrice);
-      Navigator.of(context).pop();
+      // --- PERBAIKAN: Gunakan metode `updateItem` yang baru dan efisien ---
+      ref.read(purchaseCartProvider.notifier).updateItem(
+        widget.cartItem.product.id, 
+        newQuantity: _quantity, 
+        newPrice: _purchasePrice,
+      );
+      if (mounted) Navigator.of(context).pop();
     }
   }
 
   void _delete() {
-    // Menggunakan nama metode yang BENAR
-    ref.read(purchaseCartProvider.notifier).removeProduct(widget.cartItem.product.id);
-    Navigator.of(context).pop();
+    ref.read(purchaseCartProvider.notifier).removeItem(widget.cartItem.product.id);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit Item'),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Text('Edit Item', style: TextStyle(fontWeight: FontWeight.bold)),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.cartItem.product.name, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _priceController,
-              decoration: const InputDecoration(
-                labelText: 'Harga Beli per Item',
-                prefixText: 'Rp ',
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (value) {
-                if (value == null || value.isEmpty) return 'Harga tidak boleh kosong';
-                if (double.tryParse(value) == null) return 'Format harga tidak valid';
-                return null;
-              },
-              onSaved: (value) => _purchasePrice = double.parse(value!),
-            ),
-            const SizedBox(height: 16),
+            Text(widget.cartItem.product.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18)),
+            const SizedBox(height: 24),
             TextFormField(
               initialValue: _quantity.toString(),
-              decoration: const InputDecoration(labelText: 'Jumlah'),
+              decoration: const InputDecoration(
+                labelText: 'Jumlah', 
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Ionicons.cube_outline),
+              ),
               keyboardType: TextInputType.number,
               validator: (value) {
                 if (value == null || value.isEmpty) return 'Jumlah tidak boleh kosong';
@@ -89,18 +82,49 @@ class _EditPurchaseCartItemDialogState extends ConsumerState<EditPurchaseCartIte
               },
               onSaved: (value) => _quantity = int.parse(value!),
             ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _priceController,
+              decoration: const InputDecoration(
+                labelText: 'Harga Beli per Item',
+                prefixText: 'Rp ', 
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Ionicons.cash_outline),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: false),
+              validator: (value) {
+                if (value == null || value.isEmpty) return 'Harga tidak boleh kosong';
+                // Hapus pemisah ribuan sebelum parsing
+                final cleanValue = value.replaceAll('.', '');
+                if (double.tryParse(cleanValue) == null) return 'Format harga tidak valid';
+                return null;
+              },
+              onSaved: (value) {
+                final cleanValue = value!.replaceAll('.', '');
+                _purchasePrice = double.parse(cleanValue);
+              },
+            ),
           ],
         ),
       ),
+      actionsAlignment: MainAxisAlignment.spaceBetween,
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
-        IconButton(
-          icon: const Icon(Ionicons.trash_outline, color: Colors.red),
+        TextButton.icon(
+          icon: const Icon(Ionicons.trash_outline),
+          label: const Text('Hapus'),
           onPressed: _delete,
-          tooltip: 'Hapus Item',
+          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+          
         ),
-        const Spacer(),
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
-        ElevatedButton(onPressed: _submit, child: const Text('Simpan')),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+             TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+             const SizedBox(width: 8),
+             ElevatedButton(onPressed: _submit, child: const Text('Simpan')),
+          ],
+        ),
       ],
     );
   }

@@ -1,74 +1,77 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/purchase_cart_item.dart';
-import '../models/purchase_history.dart';
-
-// Definisi provider yang berlebihan sudah dihapus dari sini.
+import '../../models/purchase_cart_item.dart';
+import '../../models/supplier.dart';
 
 class PurchaseService {
-  final FirebaseFirestore _firestore;
-  final _uuid = const Uuid();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Uuid _uuid = const Uuid();
 
-  PurchaseService(this._firestore);
-
-  Future<void> recordPurchase({
-    required String supplierId,
-    required String supplierName,
-    required Timestamp purchaseDate,
+  Future<void> processPurchaseTransaction({
     required List<PurchaseCartItem> items,
     required double totalAmount,
     required String paymentMethod,
+    Supplier? supplier,
   }) async {
-    if (items.isEmpty) {
-      throw Exception('Keranjang pembelian kosong.');
-    }
+    // 1. Buat WriteBatch untuk memastikan semua operasi bersifat atomik
+    final WriteBatch batch = _firestore.batch();
+    final String transactionId = _uuid.v4(); // Buat ID unik untuk transaksi
 
-    final purchaseId = _uuid.v4();
-    final batch = _firestore.batch();
+    // 2. Buat referensi untuk dokumen di `purchase_transactions`
+    final DocumentReference transactionRef = _firestore.collection('purchase_transactions').doc(transactionId);
 
-    final purchaseRef = _firestore.collection('purchases').doc(purchaseId);
-    batch.set(purchaseRef, {
-      'supplierId': supplierId,
-      'supplierName': supplierName,
-      'purchaseDate': purchaseDate,
+    // 3. Konversi daftar item menjadi array of maps untuk disimpan di Firestore
+    final List<Map<String, dynamic>> itemsArray = items.map((item) => {
+      'productId': item.product.id,
+      'productName': item.product.name,
+      'quantity': item.quantity,
+      'purchasePrice': item.purchasePrice,
+      'subtotal': item.subtotal, // Simpan subtotal juga untuk analisis
+    }).toList();
+
+    // 4. Siapkan data untuk dokumen transaksi utama
+    final transactionData = {
+      'date': FieldValue.serverTimestamp(),
       'totalAmount': totalAmount,
       'paymentMethod': paymentMethod,
-      'itemCount': items.length,
-    });
+      'supplierId': supplier?.id,
+      'supplierName': supplier?.name,
+      'items': itemsArray, // Simpan sebagai array of maps
+    };
 
+    // Tambahkan operasi SET untuk dokumen transaksi ke dalam batch
+    batch.set(transactionRef, transactionData);
+
+    // 5. Loop melalui setiap item untuk membuat entri di `purchase_history` dan update stok
     for (final item in items) {
-      final itemRef = purchaseRef.collection('items').doc(item.product.id);
-      batch.set(itemRef, item.toMap());
+      // Buat ID unik untuk entri riwayat
+      final String historyId = _uuid.v4();
+      final DocumentReference historyRef = _firestore.collection('purchase_history').doc(historyId);
 
-      final productRef = _firestore.collection('products').doc(item.product.id);
-      
+      // Siapkan data untuk dokumen riwayat
+      final historyData = {
+        'transactionId': transactionId, // Tautkan ke ID transaksi utama
+        'productId': item.product.id,
+        'productName': item.product.name,
+        'quantity': item.quantity,
+        'purchasePrice': item.purchasePrice,
+        'supplierName': supplier?.name, // Denormalisasi untuk kemudahan
+        'purchaseDate': FieldValue.serverTimestamp(),
+      };
+      // Tambahkan operasi SET untuk dokumen riwayat ke dalam batch
+      batch.set(historyRef, historyData);
+
+      // 6. Update stok produk di koleksi `products`
+      final DocumentReference productRef = _firestore.collection('products').doc(item.product.id);
       batch.update(productRef, {
         'stock': FieldValue.increment(item.quantity),
-        'lastPurchasePrice': item.purchasePrice,
-      });
-      
-      final productHistoryRef = productRef.collection('purchase_history').doc();
-      batch.set(productHistoryRef, {
-        'purchaseId': purchaseId,
-        'purchaseDate': purchaseDate,
-        'supplierName': supplierName,
-        'quantity': item.quantity,
+        // Juga perbarui harga beli terakhir jika diperlukan
         'purchasePrice': item.purchasePrice,
       });
     }
 
+    // 7. Commit batch untuk menulis semua perubahan ke Firestore
     await batch.commit();
-  }
-
-  Stream<List<PurchaseHistory>> getPurchaseHistoryForProduct(String productId) {
-    return _firestore
-        .collection('products')
-        .doc(productId)
-        .collection('purchase_history')
-        .orderBy('purchaseDate', descending: true)
-        .snapshots()
-        .map((snapshot) => 
-            snapshot.docs.map((doc) => PurchaseHistory.fromMap(doc.data())).toList());
   }
 }

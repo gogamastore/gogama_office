@@ -1,70 +1,41 @@
-# Blueprint Proyek: Aplikasi Manajemen Inventaris & Pesanan
+# Blueprint Aplikasi Inventory Management
 
-Dokumen ini adalah sumber kebenaran tunggal untuk gaya, desain, dan fitur aplikasi. Dokumen ini diperbarui secara otomatis setelah setiap perubahan.
+## Ringkasan
 
----
+Aplikasi ini adalah sistem manajemen inventory yang dirancang untuk membantu pengguna melacak produk, mengelola pembelian dari supplier, mencatat penjualan, dan memantau data bisnis melalui laporan. Aplikasi ini dibangun dengan Flutter dan menggunakan Firebase sebagai backend.
 
-## 1. Ringkasan & Tujuan Aplikasi
+## Desain & Fitur yang Sudah Diimplementasikan
 
-Aplikasi ini adalah sistem manajemen inventaris dan pesanan yang komprehensif, dibangun menggunakan Flutter dan Riverpod. Tujuannya adalah untuk menyediakan alat yang mudah digunakan bagi pemilik bisnis untuk melacak produk, mengelola stok, memproses pesanan penjualan, dan mencatat pembelian dari pemasok.
+### Arsitektur
+- **State Management:** Menggunakan `flutter_riverpod` untuk manajemen state yang reaktif dan terukur.
+- **Struktur Proyek:** Kode diorganisir berdasarkan fitur.
 
----
+### Fitur Utama
+- **Manajemen Produk:** CRUD (Create, Read, Update, Delete) untuk produk.
+- **Manajemen Supplier:** CRUD untuk supplier.
+- **Manajemen Pembelian:** Membuat keranjang pembelian, mengedit item, dan memproses transaksi.
+- **Dashboard Utama:** Pusat navigasi aplikasi.
 
-## 2. Fitur, Desain, & Arsitektur yang Telah Diimplementasikan
+### Gaya & Desain
+- **UI:** Menggunakan komponen Material Design 3.
+- **Tampilan Pembelian (Lama):** Menggunakan `Card` untuk daftar produk dan FAB untuk akses ke keranjang.
 
-### A. Arsitektur & Teknologi
-- **Framework**: Flutter
-- **Perender Web**: Dikonfigurasi untuk menggunakan **CanvasKit** di `web/index.html` untuk rendering ikon dan *font* yang andal.
-- **Konfigurasi Web**: Jalur dasar (`base href`) diatur secara eksplisit ke `/` di `web/index.html` untuk mencegah *error* 404 saat memuat aset.
-- **Manajemen State**: `flutter_riverpod` untuk manajemen state yang reaktif dan terukur.
-- **Struktur Proyek**: Kode diorganisir berdasarkan fitur (misalnya, `screens/products`, `screens/orders`).
-- **Desain & Tema**: Menggunakan `ThemeData` terpusat di `lib/main.dart` untuk konsistensi visual.
+## Rencana Perubahan Saat Ini: Refactor Alur Pembelian & Perbaikan Kritis
 
-### B. Fitur Utama
+### Tujuan
+Menyempurnakan alur pembelian secara menyeluruh, mulai dari tampilan hingga logika penyimpanan data, untuk meningkatkan UX dan memperbaiki bug kritis.
 
-- **Manajemen Produk**: Tampilan daftar, pencarian, dan halaman detail produk yang terpusat.
-- **Manajemen Pesanan**: Tampilan daftar, detail, dan halaman edit pesanan layar penuh.
-- **Manajemen Pembelian**: Alur untuk membuat catatan pembelian baru dan antarmuka keranjang.
+### Langkah-langkah Implementasi
+1.  **Perbaikan Kritis Struktur Data Firestore (`purchase_service.dart`):**
+    *   Mengubah total logika penyimpanan agar sesuai dengan struktur data yang diinginkan pengguna untuk mengatasi error `insufficient permissions`.
+    *   **Koleksi `purchase_transactions`:** Menyimpan satu dokumen per transaksi. Dokumen ini akan berisi *array* `items` yang mencakup semua produk yang dibeli.
+    *   **Koleksi `purchase_history`:** Membuat satu dokumen terpisah untuk *setiap* item produk dalam transaksi. Dokumen ini akan berisi detail item dan ID transaksi terkait.
+    *   Semua operasi (pembuatan transaksi, pembuatan riwayat, dan pembaruan stok produk) akan tetap menggunakan `WriteBatch` untuk menjamin konsistensi data.
 
-### C. Desain & UI/UX
+2.  **Refactor UI Halaman Pembelian (`purchases_screen.dart`):**
+    *   Menghapus seluruh sistem paginasi (halaman) untuk menampilkan semua hasil pencarian dalam satu daftar yang bisa di-*scroll*.
 
-- **Gaya Desain**: Dikelola oleh `ThemeData` terpusat, mengadopsi gaya modern dan bersih.
-- **Ikonografi**: Menggunakan paket `ionicons`.
-- **Tipografi**: Menggunakan `google_fonts` dengan *font* **Inter**.
-- **Palet Warna**: Skema warna terpusat dengan biru (`#5DADE2`) sebagai aksen utama.
-- **Gaya Komponen**: Gaya global untuk `AppBar`, `Card`, dan `TextField`.
-
----
-
-## 3. Rencana & Langkah Perubahan Terbaru
-
-Berikut adalah log dari perubahan terakhir yang diminta dan berhasil diimplementasikan.
-
-### Peningkatan Alur Kerja Halaman Pembelian: Harga Beli Terakhir & Interaksi Intuitif (Saat Ini)
-
-**Tujuan**: Merombak alur kerja pada halaman "Buat Pembelian Baru" agar lebih intuitif. Tombol "Tambah" akan dihapus dan digantikan dengan gestur klik pada seluruh baris produk untuk membuka dialog. Selain itu, harga beli terakhir akan ditampilkan dan digunakan sebagai nilai default untuk mempercepat proses input.
-
-**Langkah-Langkah Eksekusi:**
-
-1.  **Pembaruan Model Produk**: Menambahkan field `lastPurchasePrice` ke model `Product`.
-2.  **Modifikasi Logika Proses Pembelian**: Memperbarui logika di `process_purchase_screen.dart` untuk menyimpan harga beli baru ke `lastPurchasePrice` setelah pembelian berhasil.
-3.  **Pembaruan UI Halaman Pembelian**: Merombak `purchases_screen.dart` untuk menghapus tombol "Tambah", membuat seluruh `ListTile` dapat diklik, dan menampilkan harga beli terakhir di daftar.
-4.  **Pembaruan Dialog Tambah Produk**: Memperbarui `add_to_purchase_cart_dialog.dart` untuk secara otomatis mengisi kolom harga dengan `lastPurchasePrice` produk.
-
-### Perombakan Alur Kerja Produk: Halaman Detail & Navigasi
-
-**Tujuan**: Mengganti alur kerja manajemen produk yang lama (menggunakan ikon edit) dengan sistem yang lebih modern di mana pengguna mengklik item daftar untuk menavigasi ke halaman detail produk yang komprehensif.
-
-**Langkah-Langkah Eksekusi:**
-
-1.  **✅ Pembuatan Halaman Detail Produk**: File baru `lib/screens/products/product_detail_screen.dart` dibuat.
-2.  **✅ Modifikasi Halaman Daftar Produk**: File `lib/screens/products/products_screen.dart` diperbarui. Ikon "Edit" dihapus dan seluruh kartu produk dibungkus dengan `InkWell`.
-3.  **✅ Implementasi Navigasi**: Logika `onTap` ditambahkan untuk menavigasi ke `ProductDetailScreen`.
-
-### Pemeliharaan Kode: Menghapus Impor yang Tidak Digunakan
-
-**Tujuan**: Menjaga kebersihan kode dengan menghilangkan peringatan `unused_import`.
-
-**Langkah-Langkah Eksekusi:**
-
-1.  **✅ Identifikasi & Tindakan**: Menghapus impor yang tidak terpakai di `lib/screens/purchases/process_purchase_screen.dart`.
+3.  **Refactor UI Halaman Keranjang (`purchase_cart_screen.dart`):**
+    *   Mengubah tampilan daftar item di keranjang agar mirip dengan daftar produk di halaman manajemen produk (menggunakan `ListTile` atau `Card` yang informatif).
+    *   Menghapus tombol-tombol edit (+, -) yang ada di baris item.
+    *   Menerapkan fungsionalitas di mana mengetuk (tap) pada sebuah item di keranjang akan memunculkan dialog `EditPurchaseCartItemDialog` untuk mengubah jumlah atau harga.

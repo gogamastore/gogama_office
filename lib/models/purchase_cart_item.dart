@@ -1,4 +1,4 @@
-import '../models/product.dart';
+import 'product.dart';
 
 class PurchaseCartItem {
   final Product product;
@@ -13,6 +13,7 @@ class PurchaseCartItem {
 
   double get subtotal => quantity * purchasePrice;
 
+  // Konversi ke Map untuk disimpan di Firestore
   Map<String, dynamic> toMap() {
     return {
       'productId': product.id,
@@ -23,7 +24,24 @@ class PurchaseCartItem {
     };
   }
 
-  // Menambahkan metode copyWith yang hilang
+  // Buat instance dari Map yang diambil dari Firestore
+  factory PurchaseCartItem.fromMap(Map<String, dynamic> map) {
+    return PurchaseCartItem(
+      // Buat objek Product "parsial" karena data lengkap tidak disimpan di dalam transaksi
+      product: Product(
+        id: map['productId'] ?? '',
+        name: map['productName'] ?? '',
+        price: 0, // Harga jual tidak disimpan di item, default ke 0
+        stock: 0, // Stok tidak relevan dalam konteks item keranjang, default ke 0
+        // Harga beli tersedia di dalam map
+        purchasePrice: (map['purchasePrice' as num?])?.toDouble() ?? 0.0,
+        lastPurchasePrice: (map['purchasePrice' as num?])?.toDouble() ?? 0.0,
+      ),
+      quantity: (map['quantity' as num?])?.toInt() ?? 0,
+      purchasePrice: (map['purchasePrice' as num?])?.toDouble() ?? 0.0,
+    );
+  }
+  
   PurchaseCartItem copyWith({
     Product? product,
     int? quantity,

@@ -10,19 +10,19 @@ class AddToPurchaseCartDialog extends ConsumerStatefulWidget {
   const AddToPurchaseCartDialog({super.key, required this.product});
 
   @override
-  _AddToPurchaseCartDialogState createState() => _AddToPurchaseCartDialogState();
+  // PERBAIKAN 1: Mengubah state class menjadi public
+  AddToPurchaseCartDialogState createState() => AddToPurchaseCartDialogState();
 }
 
-class _AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog> {
+// PERBAIKAN 1: Mengubah nama state class menjadi public
+class AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialog> {
   final _formKey = GlobalKey<FormState>();
   int _quantity = 1;
-  late double _purchasePrice; // Dibuat `late` karena akan diinisialisasi di initState
+  late double _purchasePrice;
 
   @override
   void initState() {
     super.initState();
-    // Inisialisasi harga beli dengan harga beli terakhir dari produk.
-    // Jika null (belum pernah dibeli), fallback ke 0.0
     _purchasePrice = widget.product.lastPurchasePrice ?? 0.0;
   }
 
@@ -30,10 +30,11 @@ class _AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialo
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      ref.read(purchaseCartProvider.notifier).addProduct(
+      // PERBAIKAN 2 & 3: Menggunakan nama metode yang benar (`addItem`) dan urutan argumen yang benar
+      ref.read(purchaseCartProvider.notifier).addItem(
             widget.product,
-            _purchasePrice,
-            _quantity,
+            _quantity,       // Argumen 1: quantity
+            _purchasePrice,  // Argumen 2: price
           );
 
       Navigator.of(context).pop();
@@ -69,9 +70,8 @@ class _AddToPurchaseCartDialogState extends ConsumerState<AddToPurchaseCartDialo
             ),
             const SizedBox(height: 16),
             TextFormField(
-              // Menggunakan `key` untuk memastikan `initialValue` diperbarui saat widget dibangun ulang
               key: Key(_purchasePrice.toString()),
-              initialValue: _purchasePrice.toStringAsFixed(2), // Menampilkan 2 angka desimal
+              initialValue: _purchasePrice.toStringAsFixed(2),
               decoration: const InputDecoration(labelText: 'Harga Beli per Unit', prefixText: 'Rp ', border: OutlineInputBorder()),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               validator: (value) {

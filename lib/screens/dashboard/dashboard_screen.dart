@@ -38,7 +38,8 @@ class DashboardScreen extends ConsumerWidget {
                 // Stats Cards
                 dashboardDataAsync.when(
                   data: (data) => _buildStatsContainer(data),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
                 const SizedBox(height: 24),
@@ -46,7 +47,8 @@ class DashboardScreen extends ConsumerWidget {
                 // Sales Overview Chart
                 salesDataAsync.when(
                   data: (salesData) => _buildSalesChart(salesData),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
                 const SizedBox(height: 24),
@@ -54,7 +56,8 @@ class DashboardScreen extends ConsumerWidget {
                 // Recent Orders
                 dashboardDataAsync.when(
                   data: (data) => _buildRecentOrders(data.recentOrders),
-                  loading: () => const Center(child: CircularProgressIndicator()),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
                 const SizedBox(height: 24),
@@ -79,12 +82,20 @@ class DashboardScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Grosir Gallery Makassar', style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D))),
+              const Text(
+                'Grosir Gallery Makassar',
+                style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D)),
+              ),
               const SizedBox(height: 4),
               Text(
                 userName,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
-                overflow: TextOverflow.ellipsis, // Prevent long usernames from overflowing
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2C3E50),
+                ),
+                overflow: TextOverflow
+                    .ellipsis, // Prevent long usernames from overflowing
               ),
             ],
           ),
@@ -105,7 +116,11 @@ class DashboardScreen extends ConsumerWidget {
             _buildStatCard(
               icon: Icons.account_balance_wallet_outlined,
               iconColor: const Color(0xFF5DADE2),
-              value: NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(data.totalRevenue),
+              value: NumberFormat.currency(
+                locale: 'id_ID',
+                symbol: 'Rp ',
+                decimalDigits: 0,
+              ).format(data.totalRevenue),
               label: 'Total Revenue',
               subtext: 'Total dari pesanan yang selesai',
             ),
@@ -143,7 +158,13 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCard({required IconData icon, required Color iconColor, required String value, required String label, required String subtext}) {
+  Widget _buildStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+    required String subtext,
+  }) {
     return Expanded(
       child: Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -155,11 +176,28 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               Icon(icon, color: iconColor, size: 24),
               const SizedBox(height: 12),
-              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2C3E50),
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50))),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2C3E50),
+                ),
+              ),
               const SizedBox(height: 4),
-              Text(subtext, style: const TextStyle(fontSize: 11, color: Color(0xFF7F8C8D))),
+              Text(
+                subtext,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF7F8C8D)),
+              ),
             ],
           ),
         ),
@@ -176,15 +214,31 @@ class DashboardScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), spreadRadius: 1, blurRadius: 2)],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            spreadRadius: 1,
+            blurRadius: 2,
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Sales Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+          const Text(
+            'Sales Overview',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2C3E50),
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('Data Penjualan selama 6 Bulan Terakhir.', style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D))),
+          const Text(
+            'Data Penjualan selama 6 Bulan Terakhir.',
+            style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             height: 150,
@@ -195,7 +249,9 @@ class DashboardScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: salesData.map((item) {
                   // FIX: Reduce the bar height multiplier to prevent vertical overflow.
-                  final height = maxValue > 0 ? (item.value / maxValue) * 100 : 10.0;
+                  final height = maxValue > 0
+                      ? (item.value / maxValue) * 100
+                      : 10.0;
                   return _buildChartColumn(item.label, height, item.value);
                 }).toList(),
               ),
@@ -209,23 +265,37 @@ class DashboardScreen extends ConsumerWidget {
   Widget _buildChartColumn(String label, double height, int value) {
     final formattedValue = NumberFormat.compact(locale: 'id_ID').format(value);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0), // Increased padding for better spacing
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8.0,
+      ), // Increased padding for better spacing
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           if (value > 0)
-            Text(formattedValue, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF5DADE2))),
+            Text(
+              formattedValue,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF5DADE2),
+              ),
+            ),
           const SizedBox(height: 4),
           Container(
             width: 30,
             height: height,
             decoration: BoxDecoration(
-              color: value > 0 ? const Color(0xFF5DADE2) : const Color(0xFFE0E6ED),
+              color: value > 0
+                  ? const Color(0xFF5DADE2)
+                  : const Color(0xFFE0E6ED),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
+          ),
         ],
       ),
     );
@@ -236,22 +306,67 @@ class DashboardScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), spreadRadius: 1, blurRadius: 2)],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            spreadRadius: 1,
+            blurRadius: 2,
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Recent Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+          const Text(
+            'Recent Orders',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2C3E50),
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('A list of the most recent orders.', style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D))),
+          const Text(
+            'A list of the most recent orders.',
+            style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+          ),
           const SizedBox(height: 20),
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(flex: 3, child: Text('Customer', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
-              Expanded(flex: 2, child: Text('Amount', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
-              Expanded(flex: 2, child: Text('Status', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF7F8C8D)))),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Customer',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7F8C8D),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Amount',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7F8C8D),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Status',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF7F8C8D),
+                  ),
+                ),
+              ),
             ],
           ),
           const Divider(color: Color(0xFFE0E6ED)),
@@ -272,14 +387,36 @@ class DashboardScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(order.customer, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50)), overflow: TextOverflow.ellipsis,),
-                Text(DateFormat('dd/MM/yy HH:mm').format(order.date.toDate()), style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D))),
+                Text(
+                  order.customer,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF2C3E50),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  DateFormat('dd/MM/yy HH:mm').format(order.date.toDate()),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF7F8C8D),
+                  ),
+                ),
               ],
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(order.total, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Color(0xFF2C3E50))),
+            child: Text(
+              order.total,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF2C3E50),
+              ),
+            ),
           ),
           Expanded(
             flex: 2,
@@ -293,7 +430,11 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 child: Text(
                   _getStatusText(order.status),
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _getStatusColor(order.status)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _getStatusColor(order.status),
+                  ),
                 ),
               ),
             ),
@@ -305,23 +446,35 @@ class DashboardScreen extends ConsumerWidget {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'delivered': return const Color(0xFF27AE60);
-      case 'shipped': return const Color(0xFF3498DB);
-      case 'processing': return const Color(0xFFF39C12);
-      case 'pending': return const Color(0xFFE74C3C);
-      case 'cancelled': return const Color(0xFF95A5A6);
-      default: return const Color(0xFF7F8C8D);
+      case 'delivered':
+        return const Color(0xFF27AE60);
+      case 'shipped':
+        return const Color(0xFF3498DB);
+      case 'processing':
+        return const Color(0xFFF39C12);
+      case 'pending':
+        return const Color(0xFFE74C3C);
+      case 'cancelled':
+        return const Color(0xFF95A5A6);
+      default:
+        return const Color(0xFF7F8C8D);
     }
   }
 
   String _getStatusText(String status) {
     switch (status.toLowerCase()) {
-      case 'delivered': return 'Selesai';
-      case 'shipped': return 'Dikirim';
-      case 'processing': return 'Diproses';
-      case 'pending': return 'Menunggu';
-      case 'cancelled': return 'Dibatalkan';
-      default: return status;
+      case 'delivered':
+        return 'Selesai';
+      case 'shipped':
+        return 'Dikirim';
+      case 'processing':
+        return 'Diproses';
+      case 'pending':
+        return 'Menunggu';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return status;
     }
   }
 
@@ -334,7 +487,13 @@ class DashboardScreen extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(12), spreadRadius: 1, blurRadius: 2)],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(12),
+            spreadRadius: 1,
+            blurRadius: 2,
+          ),
+        ],
       ),
       // FIX: Restructure the Row to be more flexible.
       child: const Row(

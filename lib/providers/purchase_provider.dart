@@ -1,77 +1,77 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/product.dart';
+import '../../models/purchase_cart_item.dart';
 
-import '../models/product.dart';
-import '../models/purchase_cart_item.dart';
-import '../models/purchase_history.dart';
-import '../services/purchase_service.dart';
-
-final purchaseServiceProvider = Provider<PurchaseService>((ref) {
-  final firestore = ref.watch(firestoreProvider);
-  return PurchaseService(firestore);
-});
-
-final purchaseHistoryProvider = StreamProvider.family<List<PurchaseHistory>, String>((ref, productId) {
-  final purchaseService = ref.watch(purchaseServiceProvider);
-  return purchaseService.getPurchaseHistoryForProduct(productId);
-});
-
-final purchaseCartProvider = StateNotifierProvider<PurchaseCartNotifier, List<PurchaseCartItem>>((ref) {
-  return PurchaseCartNotifier();
-});
-
+// Provider untuk mengelola state dari keranjang pembelian
 class PurchaseCartNotifier extends StateNotifier<List<PurchaseCartItem>> {
   PurchaseCartNotifier() : super([]);
 
-  // Perbarui metode addProduct agar lebih cerdas
-  void addProduct(Product product, double purchasePrice, int quantity) {
-    final existingIndex = state.indexWhere((item) => item.product.id == product.id);
-    if (existingIndex != -1) {
-      // Jika produk sudah ada, tambahkan kuantitas dan perbarui harga
-      final existingItem = state[existingIndex];
-      final updatedItem = existingItem.copyWith(
-        quantity: existingItem.quantity + quantity, // Tambah kuantitas yang ada
-        purchasePrice: purchasePrice, // Selalu gunakan harga terakhir
+  // Menambah produk ke keranjang atau memperbarui jumlah jika sudah ada
+  void addItem(Product product, int quantity, double purchasePrice) {
+    final itemIndex = state.indexWhere((item) => item.product.id == product.id);
+
+    if (itemIndex != -1) {
+      // --- PERBAIKAN: Buat item baru, jangan mutasi state lama ---
+      final existingItem = state[itemIndex];
+      final updatedItem = PurchaseCartItem(
+        product: existingItem.product, 
+        // Tambah kuantitas yang ada dengan kuantitas baru
+        quantity: existingItem.quantity + quantity,
+        // Selalu gunakan harga terakhir yang dimasukkan sebagai harga pembelian
+        purchasePrice: purchasePrice, 
       );
-      state = [...state]..[existingIndex] = updatedItem;
+      // Ganti item lama dengan item yang sudah diperbarui
+      state = [
+        for (int i = 0; i < state.length; i++)
+          if (i == itemIndex) updatedItem else state[i],
+      ];
     } else {
-      // Jika produk belum ada, tambahkan item baru dengan kuantitas yang diberikan
+      // Jika produk belum ada, tambahkan sebagai item baru
       state = [
         ...state,
-        PurchaseCartItem(product: product, quantity: quantity, purchasePrice: purchasePrice),
+        PurchaseCartItem(
+          product: product,
+          quantity: quantity,
+          purchasePrice: purchasePrice,
+        ),
       ];
     }
   }
 
-  void removeProduct(String productId) {
+  // --- PERBAIKAN: Gabungkan menjadi satu metode update yang lebih baik ---
+  void updateItem(String productId, {int? newQuantity, double? newPrice}) {
+    state = [
+      for (final item in state)
+        if (item.product.id == productId)
+          PurchaseCartItem(
+            product: item.product, 
+            // Gunakan nilai baru jika ada, jika tidak, gunakan nilai lama
+            quantity: newQuantity ?? item.quantity, 
+            purchasePrice: newPrice ?? item.purchasePrice,
+          )
+        else
+          item,
+    ];
+  }
+
+  // Menghapus item dari keranjang
+  void removeItem(String productId) {
     state = state.where((item) => item.product.id != productId).toList();
   }
 
-  void updateQuantity(String productId, int newQuantity) {
-    state = [
-      for (final item in state)
-        if (item.product.id == productId)
-          item.copyWith(quantity: newQuantity)
-        else
-          item,
-    ];
-  }
-
-  void updatePrice(String productId, double newPrice) {
-    state = [
-      for (final item in state)
-        if (item.product.id == productId)
-          item.copyWith(purchasePrice: newPrice)
-        else
-          item,
-    ];
-  }
-
+  // Mengosongkan seluruh keranjang
   void clearCart() {
     state = [];
   }
-
-  double get totalAmount => state.fold(0, (sum, item) => sum + item.subtotal);
 }
 
-final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
+final purchaseCartProvider =
+    StateNotifierProvider<PurchaseCartNotifier, List<PurchaseCartItem>>((ref) {
+      return PurchaseCartNotifier();
+    });
+
+// Provider untuk menghitung total harga di keranjang
+final purchaseTotalProvider = Provider<double>((ref) {
+  final cart = ref.watch(purchaseCartProvider);
+  return cart.fold(0, (total, item) => total + item.subtotal);
+});
