@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
-import 'package:myapp/screens/orders/validate_order_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/formatter.dart';
 import './edit_order_screen.dart';
+import './pos_validation_screen.dart'; // <<< DIGANTI: Impor layar POS baru
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -85,15 +85,17 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
   
+  // --- PERUBAHAN DI SINI ---
   Widget _buildValidateButton(BuildContext context, Order order) {
     if (order.status == 'pending') {
       return ElevatedButton.icon(
         icon: const Icon(Ionicons.scan_outline, color: Colors.white),
         label: const Text('Validasi Pesanan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         onPressed: () {
+          // Mengarahkan ke layar validasi POS baru
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => ValidateOrderScreen(order: order),
+              builder: (context) => PosValidationScreen(order: order),
             ),
           );
         },
@@ -166,7 +168,6 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- MODIFIKASI: Menampilkan gambar dan SKU ---
   Widget _buildProductsCard(BuildContext context, Order order) {
     final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final subtotal = order.products.fold(0.0, (sum, p) => sum + (p.price * p.quantity));
@@ -224,7 +225,6 @@ class OrderDetailScreen extends ConsumerWidget {
       children: [
         const Text('Informasi Pembayaran', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
-        // ... (rest of the payment info widget)
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

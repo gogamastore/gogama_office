@@ -3,8 +3,6 @@ import 'dart:developer';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
-// PERBAIKAN: Hapus impor yang tidak perlu karena tidak ada konversi
-// import '../models/order_product.dart'; 
 import '../services/order_service.dart';
 
 final orderServiceProvider = Provider<OrderService>((ref) => OrderService());
@@ -30,12 +28,11 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
     await _fetchOrders();
   }
 
-  // PERBAIKAN FINAL: Menghapus konversi yang tidak perlu.
-  // Metode ini sekarang hanya menyalurkan data yang sudah konsisten.
-  Future<bool> updateOrder(String orderId, List<OrderItem> products, double shippingFee, double newTotal) async {
+  Future<bool> updateOrder(String orderId, List<OrderItem> products,
+      double shippingFee, double newTotal) async {
     try {
-      // Panggil service langsung dengan List<OrderItem>.
-      await _orderService.updateOrderDetails(orderId, products, shippingFee, newTotal);
+      await _orderService.updateOrderDetails(
+          orderId, products, shippingFee, newTotal);
       await refresh();
       return true;
     } catch (e, s) {
@@ -45,15 +42,20 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
   }
 }
 
-final orderProvider = StateNotifierProvider<OrderNotifier, AsyncValue<List<Order>>>((ref) {
+final orderProvider =
+    StateNotifierProvider<OrderNotifier, AsyncValue<List<Order>>>((ref) {
   return OrderNotifier(ref.watch(orderServiceProvider));
 });
 
-// ... (sisa kode provider tidak berubah)
-
 final orderStatusCountsProvider = Provider.autoDispose<Map<String, int>>((ref) {
   final orders = ref.watch(orderProvider).value ?? [];
-  final counts = {'pending': 0, 'processing': 0, 'shipped': 0, 'delivered': 0, 'cancelled': 0};
+  final counts = {
+    'pending': 0,
+    'processing': 0,
+    'shipped': 0,
+    'delivered': 0,
+    'cancelled': 0
+  };
   for (var order in orders) {
     if (counts.containsKey(order.status)) {
       counts[order.status] = (counts[order.status] ?? 0) + 1;
@@ -62,6 +64,7 @@ final orderStatusCountsProvider = Provider.autoDispose<Map<String, int>>((ref) {
   return counts;
 });
 
+// --- PERBAIKAN: Mengembalikan provider yang dibutuhkan oleh orders_screen.dart ---
 final orderFilterProvider = StateProvider<String>((ref) => 'all');
 
 final filteredOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
@@ -71,7 +74,21 @@ final filteredOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
   return allOrders.where((order) => order.status == filter).toList();
 });
 
-final orderDetailsProvider = FutureProvider.family.autoDispose<Order?, String>((ref, orderId) async {
+// --- PERBAIKAN: Memperbaiki implementasi provider untuk order_list_screen.dart ---
+final ordersByStatusProvider =
+    Provider.family.autoDispose<AsyncValue<List<Order>>, String>((ref, status) {
+  final allOrdersAsync = ref.watch(orderProvider);
+  // Transformasi dari satu AsyncValue ke AsyncValue lain yang sudah difilter
+  return allOrdersAsync.when(
+    data: (orders) =>
+        AsyncValue.data(orders.where((o) => o.status == status).toList()),
+    loading: () => const AsyncValue.loading(),
+    error: (e, s) => AsyncValue.error(e, s),
+  );
+});
+
+final orderDetailsProvider =
+    FutureProvider.family.autoDispose<Order?, String>((ref, orderId) async {
   final order = await ref.watch(orderServiceProvider).getOrderById(orderId);
   ref.onDispose(() {});
   return order;

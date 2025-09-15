@@ -13,7 +13,6 @@ class OrdersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsyncValue = ref.watch(orderProvider);
-    // PERBAIKAN: Panggil provider tanpa argumen. Ia akan otomatis bereaksi pada filter.
     final filteredOrders = ref.watch(filteredOrdersProvider);
     final textTheme = Theme.of(context).textTheme;
 
@@ -31,7 +30,7 @@ class OrdersScreen extends ConsumerWidget {
                 child: ordersAsyncValue.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Terjadi Kesalahan: $err')),
-                  data: (_) { // Data tidak perlu digunakan langsung, karena filteredOrders sudah di-handle
+                  data: (_) { 
                     if (filteredOrders.isEmpty) {
                       return _buildEmptyState(ref.watch(orderFilterProvider));
                     }
@@ -96,8 +95,9 @@ class OrdersScreen extends ConsumerWidget {
   Widget _buildFiltersContainer(BuildContext context, WidgetRef ref) {
     final activeFilter = ref.watch(orderFilterProvider);
     final counts = ref.watch(orderStatusCountsProvider);
+
+    // --- PERUBAHAN DI SINI: Menghapus filter 'Semua' ---
     final statusFilters = [
-      {'key': 'all', 'label': 'Semua'},
       {'key': 'pending', 'label': 'Belum Proses'},
       {'key': 'processing', 'label': 'Perlu Dikirim'},
       {'key': 'shipped', 'label': 'Dikirim'},
@@ -113,7 +113,8 @@ class OrdersScreen extends ConsumerWidget {
           children: statusFilters.map((filter) {
             final key = filter['key']!;
             final label = filter['label']!;
-            final count = key == 'all' ? (ref.watch(orderProvider).value?.length ?? 0) : (counts[key] ?? 0);
+            // Menggunakan counts provider langsung
+            final count = counts[key] ?? 0;
             final isActive = activeFilter == key;
 
             return GestureDetector(
@@ -173,7 +174,7 @@ class OrdersScreen extends ConsumerWidget {
           MaterialPageRoute(
             builder: (context) => OrderDetailScreen(orderId: order.id),
           ),
-        ).then((_) => ref.read(orderProvider.notifier).refresh()); // Refresh setelah kembali dari detail
+        ).then((_) => ref.read(orderProvider.notifier).refresh());
       },
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -352,13 +353,13 @@ class OrdersScreen extends ConsumerWidget {
 
   String _getStatusText(String status) {
     switch (status) {
-      case 'all': return 'Semua';
+      // Hapus 'all' dari sini agar tidak error jika dipanggil di tempat lain
       case 'delivered': return 'Selesai';
       case 'shipped': return 'Dikirim';
       case 'processing': return 'Perlu Dikirim';
       case 'pending': return 'Belum Proses';
       case 'cancelled': return 'Dibatalkan';
-      default: return status[0].toUpperCase() + status.substring(1);
+      default: return status;
     }
   }
 

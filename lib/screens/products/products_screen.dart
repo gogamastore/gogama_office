@@ -4,10 +4,10 @@ import 'package:intl/intl.dart';
 
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
+import '../stock/stock_management_screen.dart'; // Impor halaman baru
 import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
 
-// Mengubah menjadi ConsumerStatefulWidget untuk mengelola state pencarian
 class ProductsScreen extends ConsumerStatefulWidget {
   const ProductsScreen({super.key});
 
@@ -35,6 +35,22 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     super.dispose();
   }
 
+  void _onMenuSelected(String value) {
+    switch (value) {
+      case 'stock_management':
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => const StockManagementScreen()),
+        );
+        break;
+      case 'import':
+        // TODO: Implement import functionality
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fitur import akan segera hadir!')),
+        );
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final productsAsyncValue = ref.watch(allProductsProvider);
@@ -44,11 +60,8 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       appBar: AppBar(
         title: const Text('Manajemen Produk'),
         actions: [
-          // Mengembalikan PopupMenuButton
           PopupMenuButton<String>(
-            onSelected: (value) {
-              // TODO: Implement navigation for these menus
-            },
+            onSelected: _onMenuSelected, // Hubungkan ke fungsi navigasi
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(
                 value: 'import',
@@ -64,7 +77,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
       body: productsAsyncValue.when(
         data: (products) {
-          // Logika untuk memfilter produk berdasarkan _searchTerm
           final filteredProducts = products.where((product) {
             final nameLower = product.name.toLowerCase();
             final searchLower = _searchTerm.toLowerCase();
@@ -73,7 +85,6 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
 
           return Column(
             children: [
-              // Mengembalikan field pencarian
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: TextField(
