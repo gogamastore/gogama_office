@@ -65,7 +65,7 @@ class OrderService {
     });
   }
 
-  // --- PERBAIKAN: Secara konsisten menerima List<OrderItem> untuk update ---
+  // --- PERBAIKAN: Secara konsisten menerima List<OrderItem> untuk update --
   Future<void> updateOrderDetails(String orderId, List<OrderItem> products,
       double shippingFee, double newTotal) async {
     final orderRef = _db.collection('orders').doc(orderId);
@@ -76,7 +76,7 @@ class OrderService {
     await orderRef.update({
       'products': productsAsJson,
       'shippingFee': shippingFee,
-      'total': newTotal.toString(), // Simpan sebagai string untuk konsistensi
+      'total': newTotal.toInt(), // PERBAIKAN: Simpan sebagai integer
       'updatedAt': firestore.Timestamp.now(),
     });
   }

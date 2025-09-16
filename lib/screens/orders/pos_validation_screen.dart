@@ -56,11 +56,14 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         _unscannedProducts.removeWhere((p) => p.sku == sku);
         _validatedProducts[sku] = productInOrder;
         if (!_confirmedQuantities.containsKey(sku)) {
-          _confirmedQuantities[sku] = 0;
+          // --- PERBAIKAN: Inisialisasi jumlah terkonfirmasi dengan jumlah pesanan ---
+          _confirmedQuantities[sku] = productInOrder.quantity;
         }
       });
       _manualInputController.clear();
       _audioPlayer.play(AssetSource('sounds/success.mp3'));
+      // Langsung buka dialog setelah produk berhasil divalidasi
+      _showQuantityDialog(productInOrder);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('SKU tidak ditemukan atau sudah divalidasi.'), backgroundColor: Colors.orange),
@@ -84,7 +87,8 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
   }
 
   void _showQuantityDialog(OrderItem product) {
-    int currentQty = _confirmedQuantities[product.sku] ?? 0;
+    // --- PERBAIKAN: Gunakan jumlah yang ada atau default ke jumlah pesanan ---
+    int currentQty = _confirmedQuantities[product.sku] ?? product.quantity;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(

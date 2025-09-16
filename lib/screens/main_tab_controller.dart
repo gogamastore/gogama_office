@@ -6,6 +6,7 @@ import 'dashboard/dashboard_screen.dart';
 import 'orders/orders_screen.dart'; // Import OrdersScreen
 import 'products/products_screen.dart';
 import 'purchases/purchases_screen.dart'; // Import PurchasesScreen
+import 'profile/profile_screen.dart'; // Import ProfileScreen
 
 class MainTabController extends ConsumerStatefulWidget {
   const MainTabController({super.key});
@@ -21,7 +22,7 @@ class MainTabControllerState extends ConsumerState<MainTabController> {
     const OrdersScreen(), // Ganti placeholder dengan OrdersScreen
     const ProductsScreen(),
     const PurchasesScreen(), // Ganti placeholder dengan PurchasesScreen
-    const Text('Profile Screen'),
+    const ProfileScreen(), // Ganti placeholder dengan ProfileScreen
   ];
 
   void _onItemTapped(int index) {
