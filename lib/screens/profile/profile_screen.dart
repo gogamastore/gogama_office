@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/user_service.dart';
 import 'profile_settings_screen.dart';
-import 'security_screen.dart'; // Impor file baru
+import 'reports_screen.dart'; // Impor halaman laporan
+import 'security_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -95,11 +96,14 @@ class ProfileScreen extends ConsumerWidget {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
       onTap: () {
-        // DIPERBARUI: Menambahkan navigasi untuk Keamanan
+        // DIPERBARUI: Menambahkan navigasi untuk Laporan
         if (title == 'Profil') {
           Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ProfileSettingsScreen()));
         } else if (title == 'Keamanan') {
           Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SecurityScreen()));
+        } else if (title == 'Laporan') {
+          // Navigasi ke halaman laporan yang baru
+          Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ReportsScreen()));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Navigasi untuk "$title" belum diimplementasikan.')),

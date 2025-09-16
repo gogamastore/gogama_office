@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ionicons/ionicons.dart';
 
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
-import '../stock/stock_management_screen.dart'; // Impor halaman baru
+import '../../services/sound_service.dart'; // DIPERBARUI: Impor SoundService
+import '../stock/stock_management_screen.dart'; 
 import 'add_product_screen.dart';
+import 'barcode_scanner_screen.dart';
 import 'product_detail_screen.dart';
 
 class ProductsScreen extends ConsumerStatefulWidget {
@@ -19,19 +22,27 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchTerm = '';
 
+  // DIPERBARUI: Buat instance SoundService
+  late final SoundService _soundService;
+
   @override
   void initState() {
     super.initState();
+    _soundService = SoundService(); // Inisialisasi SoundService
+
     _searchController.addListener(() {
-      setState(() {
-        _searchTerm = _searchController.text;
-      });
+      if (mounted) {
+        setState(() {
+          _searchTerm = _searchController.text;
+        });
+      }
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _soundService.dispose(); // DIPERBARUI: Hapus SoundService
     super.dispose();
   }
 
@@ -43,11 +54,26 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         );
         break;
       case 'import':
-        // TODO: Implement import functionality
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Fitur import akan segera hadir!')),
         );
         break;
+    }
+  }
+
+  // DIPERBARUI: Menggunakan SoundService untuk memutar suara
+  Future<void> _navigateToScanner() async {
+    final sku = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
+    );
+
+    if (sku != null && mounted) {
+      _searchController.text = sku;
+      // Memutar suara sukses dengan aman menggunakan service
+      await _soundService.playSuccessSound();
+    } else {
+      // Opsional: Memutar suara error jika pemindai dibatalkan
+      await _soundService.playErrorSound();
     }
   }
 
@@ -61,7 +87,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         title: const Text('Manajemen Produk'),
         actions: [
           PopupMenuButton<String>(
-            onSelected: _onMenuSelected, // Hubungkan ke fungsi navigasi
+            onSelected: _onMenuSelected,
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(
                 value: 'import',
@@ -79,8 +105,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         data: (products) {
           final filteredProducts = products.where((product) {
             final nameLower = product.name.toLowerCase();
+            final skuLower = product.sku?.toLowerCase() ?? '';
             final searchLower = _searchTerm.toLowerCase();
-            return nameLower.contains(searchLower);
+            
+            return nameLower.contains(searchLower) || skuLower.contains(searchLower);
           }).toList();
 
           return Column(
@@ -90,8 +118,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Cari produk...',
+                    hintText: 'Cari nama produk atau pindai SKU...',
                     prefixIcon: const Icon(Icons.search),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Ionicons.barcode_outline),
+                      onPressed: _navigateToScanner,
+                      tooltip: 'Pindai Barcode',
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.0),
                     ),
@@ -100,7 +133,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               ),
               Expanded(
                 child: filteredProducts.isEmpty
-                    ? const Center(child: Text('Produk tidak ditemukan.'))
+                    ? Center(child: Text(_searchTerm.isEmpty ? 'Tidak ada produk.' : 'Produk tidak ditemukan.'))
                     : _buildProductList(filteredProducts, currencyFormatter),
               ),
             ],
@@ -137,7 +170,14 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               : null,
           ),
           title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(currencyFormatter.format(product.price)),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(currencyFormatter.format(product.price)),
+              if (product.sku != null && product.sku!.isNotEmpty)
+                Text('SKU: ${product.sku}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            ],
+          ),
           trailing: Text('Stok: ${product.stock}'),
           onTap: () {
             Navigator.of(context).push(

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ionicons/ionicons.dart';
 
 import '../../models/product.dart';
 import '../../models/purchase_cart_item.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/purchase_provider.dart';
+import '../../services/sound_service.dart'; // DIPERBARUI: Impor SoundService
+import '../products/barcode_scanner_screen.dart';
 import 'add_to_purchase_cart_dialog.dart';
 import 'edit_purchase_cart_item_dialog.dart';
 import 'purchase_cart_screen.dart';
@@ -18,7 +21,43 @@ class PurchasesScreen extends ConsumerStatefulWidget {
 }
 
 class PurchasesScreenState extends ConsumerState<PurchasesScreen> {
-  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  
+  // DIPERBARUI: Buat instance SoundService
+  late final SoundService _soundService;
+
+  @override
+  void initState() {
+    super.initState();
+    _soundService = SoundService(); // Inisialisasi SoundService
+
+    _searchController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _soundService.dispose(); // DIPERBARUI: Hapus SoundService
+    super.dispose();
+  }
+
+  // DIPERBARUI: Menggunakan SoundService untuk memutar suara
+  Future<void> _navigateToScanner() async {
+    final sku = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
+    );
+
+    if (sku != null && mounted) {
+      _searchController.text = sku;
+      await _soundService.playSuccessSound();
+    } else {
+      await _soundService.playErrorSound();
+    }
+  }
 
   void _showAddToCartDialog(Product product) {
     showDialog(
@@ -40,7 +79,8 @@ class PurchasesScreenState extends ConsumerState<PurchasesScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      bottomNavigationBar: cartItemCount > 0 ? _buildCartBottomBar(context, cartItemCount) : null,
+      bottomNavigationBar:
+          cartItemCount > 0 ? _buildCartBottomBar(context, cartItemCount) : null,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -65,7 +105,6 @@ class PurchasesScreenState extends ConsumerState<PurchasesScreen> {
     );
   }
 
-  // --- PERUBAHAN: Disederhanakan untuk menghapus paginasi ---
   Widget _buildProductList() {
     final productsAsync = ref.watch(allProductsProvider);
 
@@ -74,10 +113,15 @@ class PurchasesScreenState extends ConsumerState<PurchasesScreen> {
         Padding(
           padding: const EdgeInsets.only(bottom: 16.0),
           child: TextField(
-            onChanged: (value) => setState(() => _searchQuery = value),
+            controller: _searchController,
             decoration: InputDecoration(
-              hintText: 'Cari nama atau SKU produk...',
+              hintText: 'Cari nama atau pindai SKU...',
               prefixIcon: const Icon(Icons.search, color: Color(0xFF7F8C8D)),
+              suffixIcon: IconButton(
+                icon: const Icon(Ionicons.barcode_outline),
+                onPressed: _navigateToScanner,
+                tooltip: 'Pindai Barcode',
+              ),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               filled: true,
               fillColor: Colors.white,
@@ -88,15 +132,16 @@ class PurchasesScreenState extends ConsumerState<PurchasesScreen> {
           child: productsAsync.when(
             data: (products) {
               final filteredProducts = products.where((p) {
-                final query = _searchQuery.toLowerCase();
-                return p.name.toLowerCase().contains(query) || (p.sku ?? '').toLowerCase().contains(query);
+                final query = _searchController.text.toLowerCase();
+                if (query.isEmpty) return true;
+                return p.name.toLowerCase().contains(query) ||
+                    (p.sku ?? '').toLowerCase().contains(query);
               }).toList();
 
               if (filteredProducts.isEmpty) {
                 return const Center(child: Text('Produk tidak ditemukan.'));
               }
 
-              // Langsung gunakan ListView.builder tanpa paginasi
               return ListView.builder(
                 padding: const EdgeInsets.only(top: 4),
                 itemCount: filteredProducts.length,

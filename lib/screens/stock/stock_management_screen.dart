@@ -1,38 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ionicons/ionicons.dart';
 
 import '../../models/product.dart';
 import '../../providers/product_provider.dart';
-import '../../widgets/stock_adjustment_dialog.dart';
 import '../../services/stock_service.dart';
+import '../../services/sound_service.dart'; // DIPERBARUI: Impor SoundService
+import '../../widgets/stock_adjustment_dialog.dart';
+import '../products/barcode_scanner_screen.dart';
 
 class StockManagementScreen extends ConsumerStatefulWidget {
   const StockManagementScreen({super.key});
 
   @override
-  ConsumerState<StockManagementScreen> createState() => _StockManagementScreenState();
+  ConsumerState<StockManagementScreen> createState() =>
+      _StockManagementScreenState();
 }
 
 class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchTerm = '';
-  bool _sortByLowestStock = false; // 1. State baru untuk filter
+  bool _sortByLowestStock = false;
+
+  // DIPERBARUI: Buat instance SoundService
+  late final SoundService _soundService;
 
   @override
   void initState() {
     super.initState();
+    _soundService = SoundService(); // Inisialisasi SoundService
+
     _searchController.addListener(() {
-      setState(() {
-        _searchTerm = _searchController.text;
-      });
+      if (mounted) {
+        setState(() {
+          _searchTerm = _searchController.text;
+        });
+      }
     });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _soundService.dispose(); // DIPERBARUI: Hapus SoundService
     super.dispose();
+  }
+
+  // DIPERBARUI: Menggunakan SoundService untuk memutar suara
+  Future<void> _navigateToScanner() async {
+    final sku = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
+    );
+
+    if (sku != null && mounted) {
+      _searchController.text = sku;
+      await _soundService.playSuccessSound();
+    } else {
+      await _soundService.playErrorSound();
+    }
   }
 
   void _showStockAdjustmentDialog(Product product) async {
@@ -91,11 +117,8 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
       ),
       body: productsAsyncValue.when(
         data: (products) {
-          // --- LOGIKA FILTER & SORTING BARU ---
-          // Buat salinan yang bisa diubah
           List<Product> processedProducts = List.from(products);
 
-          // 1. Filter berdasarkan pencarian
           if (_searchTerm.isNotEmpty) {
             processedProducts = processedProducts.where((product) {
               final nameLower = product.name.toLowerCase();
@@ -105,11 +128,9 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
             }).toList();
           }
 
-          // 2. Urutkan berdasarkan stok terendah jika filter aktif
           if (_sortByLowestStock) {
             processedProducts.sort((a, b) => a.stock.compareTo(b.stock));
           }
-          // -------------------------------------
 
           return Column(
             children: [
@@ -118,16 +139,19 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'Cari nama atau SKU produk...',
+                    hintText: 'Cari nama atau pindai SKU...',
                     prefixIcon: const Icon(Icons.search),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Ionicons.barcode_outline),
+                      onPressed: _navigateToScanner,
+                      tooltip: 'Pindai Barcode',
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                   ),
                 ),
               ),
-
-              // 2. UI Baru untuk filter
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: SwitchListTile(
@@ -143,7 +167,6 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                 ),
               ),
               const Divider(height: 1),
-
               Expanded(
                 child: processedProducts.isEmpty
                     ? const Center(child: Text('Produk tidak ditemukan.'))
