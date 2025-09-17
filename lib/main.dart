@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart'; // Impor Google Fonts
 import 'package:intl/date_symbol_data_local.dart'; // Impor untuk inisialisasi lokal
 import 'firebase_options.dart';
+import 'package:firebase_app_check/firebase_app_check.dart'; // <-- IMPORT BARU
 
 import 'providers/auth_provider.dart';
 import 'screens/auth/auth_screen.dart';
@@ -15,6 +16,16 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // <-- KODE BARU UNTUK APP CHECK -->
+  await FirebaseAppCheck.instance.activate(
+    // Kunci Web reCAPTCHA v3. Ganti dengan kunci situs Anda yang sebenarnya untuk produksi.
+    webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
+    // Mode debug untuk Android. Untuk rilis, gunakan PlayIntegrityProvider.
+    androidProvider: AndroidProvider.debug,
+  );
+  // <-- AKHIR KODE BARU -->
+
   // PERBAIKAN: Inisialisasi data lokal untuk Bahasa Indonesia
   await initializeDateFormatting('id_ID', null);
   

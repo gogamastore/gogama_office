@@ -8,8 +8,8 @@ import '../../models/order.dart';
 import '../../models/order_item.dart';
 import '../../models/product.dart';
 import '../../providers/order_provider.dart';
-import 'add_product_to_order_dialog.dart';
 import 'edit_order_item_dialog.dart';
+import 'select_product_screen.dart';
 
 // MODERNISASI TOTAL: File ini sekarang menggunakan OrderItem secara eksklusif.
 
@@ -101,11 +101,13 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     );
   }
 
-  // LANGKAH 4: Logika Tambah Produk sekarang membuat OrderItem.
+  // LANGKAH 4: Logika Tambah Produk sekarang membuka halaman baru.
   void _addProduct() async {
-    final Product? selectedProduct = await showDialog<Product>(
-      context: context,
-      builder: (_) => const AddProductToOrderDialog(),
+    final Product? selectedProduct = await Navigator.push<Product>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SelectProductScreen(),
+      ),
     );
 
     if (selectedProduct != null) {

@@ -425,78 +425,82 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
+                      // ### PERUBAHAN DI SINI ###
+                      // Membungkus SingleChildScrollView horizontal dengan SingleChildScrollView vertikal
                       Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                                minWidth: MediaQuery.of(context).size.width *
-                                    0.75), 
-                            child: images.when(
-                              loading: () =>
-                                  const Center(child: CircularProgressIndicator()),
-                              error: (err, stack) =>
-                                  const Center(child: Text('Gagal memuat gambar')),
-                              data: (imageMap) {
-                                return DataTable(
-                                  columnSpacing: 18,
-                                  columns: const [
-                                    DataColumn(label: Text('Produk')),
-                                    DataColumn(label: Text('Jml'), numeric: true),
-                                    DataColumn(label: Text('Harga'), numeric: true),
-                                    DataColumn(
-                                        label: Text('Subtotal'), numeric: true),
-                                  ],
-                                  rows: order.items.map((item) {
-                                    final imageUrl = imageMap[item.productId];
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Row(
-                                            children: [
-                                              if (imageUrl != null)
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          right: 8.0),
-                                                  child: Image.network(
-                                                    imageUrl,
-                                                    width: 40,
-                                                    height: 40,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context,
-                                                            error,
-                                                            stackTrace) =>
-                                                        const Icon(
-                                                            Icons.broken_image,
-                                                            size: 40,
-                                                            color: Colors.grey),
+                        child: SingleChildScrollView( // <-- Scroll Vertikal
+                          child: SingleChildScrollView( // <-- Scroll Horizontal
+                            scrollDirection: Axis.horizontal,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                  minWidth: MediaQuery.of(context).size.width * 0.75), 
+                              child: images.when(
+                                loading: () =>
+                                    const Center(child: CircularProgressIndicator()),
+                                error: (err, stack) =>
+                                    const Center(child: Text('Gagal memuat gambar')),
+                                data: (imageMap) {
+                                  return DataTable(
+                                    columnSpacing: 18,
+                                    columns: const [
+                                      DataColumn(label: Text('Produk')),
+                                      DataColumn(label: Text('Jml'), numeric: true),
+                                      DataColumn(label: Text('Harga'), numeric: true),
+                                      DataColumn(
+                                          label: Text('Subtotal'), numeric: true),
+                                    ],
+                                    rows: order.items.map((item) {
+                                      final imageUrl = imageMap[item.productId];
+                                      return DataRow(
+                                        cells: [
+                                          DataCell(
+                                            Row(
+                                              children: [
+                                                if (imageUrl != null)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            right: 8.0),
+                                                    child: Image.network(
+                                                      imageUrl,
+                                                      width: 40,
+                                                      height: 40,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context,
+                                                              error,
+                                                              stackTrace) =>
+                                                          const Icon(
+                                                              Icons.broken_image,
+                                                              size: 40,
+                                                              color: Colors.grey),
+                                                    ),
                                                   ),
+                                                Expanded(
+                                                  child: Text(
+                                                      item.productName,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 2),
                                                 ),
-                                              Expanded(
-                                                child: Text(
-                                                    item.productName,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    maxLines: 2),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                        DataCell(Text(item.quantity.toString())),
-                                        DataCell(Text(formatter
-                                            .formatCurrency(item.salePrice))),
-                                        DataCell(Text(formatter
-                                            .formatCurrency(item.totalSale))),
-                                      ],
-                                    );
-                                  }).toList(),
-                                );
-                              },
+                                          DataCell(Text(item.quantity.toString())),
+                                          DataCell(Text(formatter
+                                              .formatCurrency(item.salePrice))),
+                                          DataCell(Text(formatter
+                                              .formatCurrency(item.totalSale))),
+                                        ],
+                                      );
+                                    }).toList(),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
                       ),
+                      // ### AKHIR PERUBAHAN ###
                       const Divider(height: 24),
                       _buildDialogTotalRow(context, 'Total Penjualan',
                           formatter.formatCurrency(order.totalRevenue)),

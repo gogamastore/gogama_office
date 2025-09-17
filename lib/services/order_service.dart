@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/order_product.dart';
-import '../models/order_item.dart'; // Impor OrderItem
+import '../models/order_item.dart'; 
 
 class OrderService {
   final _db = firestore.FirebaseFirestore.instance;
@@ -30,7 +30,7 @@ class OrderService {
       return orderProduct.copyWith(
         name: productDetails?.name ?? orderProduct.name,
         sku: productDetails?.sku,
-        imageUrl: productDetails?.image, // Gunakan 'image' dari Product
+        imageUrl: productDetails?.image, 
       );
     }).toList();
   }
@@ -58,26 +58,31 @@ class OrderService {
     return null;
   }
 
+  // THE FIX: Add deliveredAt timestamp when status is 'Delivered'
   Future<void> updateOrderStatus(String orderId, String newStatus) async {
-    await _db.collection('orders').doc(orderId).update({
+    final updateData = <String, dynamic>{
       'status': newStatus,
-      'updatedAt': firestore.Timestamp.now(),
-    });
+      'updatedAt': firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (newStatus == 'Delivered') {
+      updateData['deliveredAt'] = firestore.FieldValue.serverTimestamp();
+    }
+
+    await _db.collection('orders').doc(orderId).update(updateData);
   }
 
-  // --- PERBAIKAN: Secara konsisten menerima List<OrderItem> untuk update --
   Future<void> updateOrderDetails(String orderId, List<OrderItem> products,
       double shippingFee, double newTotal) async {
     final orderRef = _db.collection('orders').doc(orderId);
 
-    // Ubah List<OrderItem> menjadi List<Map<String, dynamic>> untuk Firestore
     final productsAsJson = products.map((p) => p.toJson()).toList();
 
     await orderRef.update({
       'products': productsAsJson,
       'shippingFee': shippingFee,
-      'total': newTotal.toInt(), // PERBAIKAN: Simpan sebagai integer
-      'updatedAt': firestore.Timestamp.now(),
+      'total': newTotal.toInt(), 
+      'updatedAt': firestore.FieldValue.serverTimestamp(),
     });
   }
 }

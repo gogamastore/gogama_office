@@ -1,1 +1,6 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"orderflow-r7jsk","appId":"1:954515661623:android:b798314ceba1b7352ef0b2","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"orderflow-r7jsk","configurations":{"android":"1:954515661623:android:b798314ceba1b7352ef0b2","web":"1:954515661623:web:02604a58f4dca9fa2ef0b2"}}}}}}
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  }
+}
