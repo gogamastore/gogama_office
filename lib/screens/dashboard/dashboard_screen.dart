@@ -18,8 +18,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _refreshData() async {
-    await ref.refresh(dashboardDataProvider.future);
-    await ref.refresh(salesAnalyticsProvider.future);
+    // CORRECTED: Call ref.refresh directly on the provider
+    ref.refresh(dashboardDataProvider);
+    ref.refresh(salesAnalyticsProvider);
   }
 
   @override

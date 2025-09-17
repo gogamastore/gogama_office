@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myapp/models/order.dart';
 import 'package:myapp/screens/orders/order_detail_screen.dart';
-import 'package:myapp/utils/formatter.dart';
+import 'package:myapp/utils/formatter.dart' as formatter;
 
 class OrderCard extends StatelessWidget {
   final Order order;
@@ -11,7 +11,7 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return InkWell(
       onTap: () {
@@ -40,13 +40,13 @@ class OrderCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: getStatusColor(order.status).withOpacity(0.1),
+                      color: formatter.getStatusColor(order.status).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      getStatusText(order.status),
+                      formatter.getStatusText(order.status),
                       style: TextStyle(
-                        color: getStatusColor(order.status),
+                        color: formatter.getStatusColor(order.status),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -73,7 +73,7 @@ class OrderCard extends StatelessWidget {
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   Text(
-                    formatter.format(double.tryParse(order.total) ?? 0),
+                    currencyFormatter.format(double.tryParse(order.total) ?? 0),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                 ],

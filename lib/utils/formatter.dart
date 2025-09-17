@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 // Fungsi-fungsi ini sekarang terpusat di sini untuk digunakan di seluruh aplikasi.
+
+String formatCurrency(double amount, {String symbol = 'Rp '}) {
+  final formatter = NumberFormat.currency(locale: 'id_ID', symbol: symbol, decimalDigits: 0);
+  return formatter.format(amount);
+}
 
 Color getStatusColor(String status) {
   switch (status.toLowerCase()) {

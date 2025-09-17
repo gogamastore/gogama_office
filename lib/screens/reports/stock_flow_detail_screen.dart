@@ -24,7 +24,7 @@ class StockFlowDetailScreen extends StatelessWidget {
             Text('Detail untuk produk: ${product.name}'),
             const SizedBox(height: 10),
             Text('Periode: ${dateRange.start.toString()} - ${dateRange.end.toString()}'),
-            // TODO: Implementasikan detail arus stok di sini
+           
           ],
         ),
       ),

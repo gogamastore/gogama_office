@@ -74,6 +74,8 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
 
   Future<void> _navigateToScanner() async {
     try {
+      // Guard against using BuildContext across async gaps.
+      if (!mounted) return;
       final scannedValue = await Navigator.of(context).push<String>(
         MaterialPageRoute(builder: (context) => const ScannerScreen()),
       );
@@ -82,6 +84,7 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
       }
     } catch (e) {
       log('Error saat navigasi ke pemindai: $e');
+       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuka pemindai: $e')));
     }
   }

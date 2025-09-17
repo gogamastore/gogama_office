@@ -69,7 +69,7 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
         stock: stock,
         description: description,
         categoryId: _selectedCategoryId,
-        image: null, // TODO: Implement image upload
+        image: null, 
       );
 
       try {

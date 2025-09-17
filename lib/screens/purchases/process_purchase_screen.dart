@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -159,7 +158,7 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
 
             const Text('Metode Pembayaran', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
-            RadioListTile<String>(
+             RadioMenuButton<String>(
               value: 'cash',
               groupValue: _paymentMethod,
               onChanged: (String? value) {
@@ -167,10 +166,9 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
                   _paymentMethod = value!;
                 });
               },
-              title: const Text('Cash'),
-              secondary: const Icon(Icons.money_outlined, color: Color(0xFF5DADE2)),
+              child: const Text('Cash'),
             ),
-            RadioListTile<String>(
+            RadioMenuButton<String>(
               value: 'bank_transfer',
               groupValue: _paymentMethod,
               onChanged: (String? value) {
@@ -178,10 +176,9 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
                   _paymentMethod = value!;
                 });
               },
-              title: const Text('Bank Transfer'),
-              secondary: const Icon(Icons.account_balance_outlined, color: Color(0xFF5DADE2)),
+              child: const Text('Bank Transfer'),
             ),
-            RadioListTile<String>(
+            RadioMenuButton<String>(
               value: 'credit',
               groupValue: _paymentMethod,
               onChanged: (String? value) {
@@ -189,8 +186,7 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
                   _paymentMethod = value!;
                 });
               },
-              title: const Text('Credit'),
-              secondary: const Icon(Icons.credit_card_outlined, color: Color(0xFF5DADE2)),
+              child: const Text('Credit'),
             ),
           ],
         ),

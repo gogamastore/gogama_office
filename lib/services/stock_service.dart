@@ -9,14 +9,19 @@ class StockService {
   Future<void> adjustStock({
     required String productId,
     required int quantity,
-    required String type, 
+    required StockMovementType type, 
     required String reason,
     required String userId,
   }) async {
+     if (type != StockMovementType.adjustmentIn && type != StockMovementType.adjustmentOut) {
+      throw ArgumentError('Tipe penyesuaian tidak valid. Harap gunakan adjustmentIn atau adjustmentOut.');
+    }
+    final String typeString = (type == StockMovementType.adjustmentIn) ? 'in' : 'out';
+
     final productRef = _db.collection('products').doc(productId);
     final adjustmentRef = _db.collection('stock_adjustments').doc();
 
-    final int stockChange = type == 'in' ? quantity : -quantity;
+    final int stockChange = typeString == 'in' ? quantity : -quantity;
 
     return _db.runTransaction((transaction) async {
       final productSnapshot = await transaction.get(productRef);
@@ -27,7 +32,7 @@ class StockService {
       transaction.set(adjustmentRef, {
         'productId': productId,
         'quantity': quantity,
-        'type': type,
+        'type': typeString,
         'reason': reason,
         'createdAt': FieldValue.serverTimestamp(),
         'adjustedBy': userId,
@@ -75,59 +80,65 @@ class StockService {
     return calculatedMovements;
   }
 
-  // --- MODIFIKASI: Menambahkan pemeriksaan null untuk field 'items' ---
+  // --- FINAL: Menyertakan status 'Processing' sebagai stok keluar ---
   Future<List<StockMovement>> _getSalesMovements(String productId) async {
     final querySnapshot = await _db
         .collection('orders')
         .where('productIds', arrayContains: productId)
-        .where('status', whereIn: ['Delivered', 'Shipped']).get();
+        .where('status', whereIn: ['Processing', 'Shipped', 'Delivered']) // DIPERBARUI
+        .orderBy('date', descending: true)
+        .get();
 
     final List<StockMovement> movements = [];
     for (var doc in querySnapshot.docs) {
       final data = doc.data();
-      // Pengaman untuk menangani dokumen tanpa field 'items'
-      if (data['items'] == null) continue;
-      
-      final items = List<Map<String, dynamic>>.from(data['items']);
-      for (var item in items) {
-        if (item['productId'] == productId) {
-          movements.add(StockMovement(
-            date: (data['date'] as Timestamp).toDate(),
-            description: 'Penjualan - Order #${doc.id.substring(0, 6)}',
-            change: -(item['quantity'] as int),
-            type: StockMovementType.sale,
-            referenceId: doc.id,
-          ));
+      if (data['date'] == null || data['products'] == null) continue;
+
+      final List<dynamic> productList = data['products'];
+      for (var productData in productList) {
+        if (productData is Map<String, dynamic> && productData['productId'] == productId) {
+          final int quantity = (productData['quantity'] as num?)?.toInt() ?? 0;
+          if (quantity > 0) {
+            movements.add(StockMovement(
+              date: (data['date'] as Timestamp).toDate(),
+              description: 'Penjualan - Order #${doc.id.substring(0, 6)}',
+              change: -quantity,
+              type: StockMovementType.sale,
+              referenceId: doc.id,
+            ));
+          }
         }
       }
     }
     return movements;
   }
 
-  // --- MODIFIKASI: Menambahkan pemeriksaan null untuk field 'items' ---
   Future<List<StockMovement>> _getCancellationMovements(String productId) async {
     final querySnapshot = await _db
         .collection('orders')
         .where('productIds', arrayContains: productId)
         .where('status', isEqualTo: 'Cancelled')
+        .orderBy('date', descending: true)
         .get();
 
     final List<StockMovement> movements = [];
     for (var doc in querySnapshot.docs) {
       final data = doc.data();
-      // Pengaman untuk menangani dokumen tanpa field 'items'
-      if (data['items'] == null) continue;
+      if (data['date'] == null || data['products'] == null) continue;
 
-      final items = List<Map<String, dynamic>>.from(data['items']);
-      for (var item in items) {
-        if (item['productId'] == productId) {
-          movements.add(StockMovement(
-            date: (data['date'] as Timestamp).toDate(),
-            description: 'Pembatalan - Order #${doc.id.substring(0, 6)}',
-            change: item['quantity'] as int,
-            type: StockMovementType.cancellation,
-            referenceId: doc.id,
-          ));
+      final List<dynamic> productList = data['products'];
+      for (var productData in productList) {
+        if (productData is Map<String, dynamic> && productData['productId'] == productId) {
+          final int quantity = (productData['quantity'] as num?)?.toInt() ?? 0;
+          if (quantity > 0) {
+            movements.add(StockMovement(
+              date: (data['date'] as Timestamp).toDate(),
+              description: 'Pembatalan - Order #${doc.id.substring(0, 6)}',
+              change: quantity,
+              type: StockMovementType.cancellation,
+              referenceId: doc.id,
+            ));
+          }
         }
       }
     }
@@ -135,12 +146,16 @@ class StockService {
   }
 
   Future<List<StockMovement>> _getPurchaseMovements(String productId) async {
-    final querySnapshot = await _db.collection('purchase_transactions').get();
+    final querySnapshot = await _db
+        .collection('purchase_transactions')
+        .orderBy('date', descending: true)
+        .get();
 
     final List<StockMovement> movements = [];
     for (var doc in querySnapshot.docs) {
       final data = doc.data();
-      if (data['items'] == null) continue;
+      if (data['items'] == null || data['date'] == null) continue;
+
       final items = List<Map<String, dynamic>>.from(data['items']);
       for (var item in items) {
         if (item['productId'] == productId) {
@@ -161,11 +176,14 @@ class StockService {
     final querySnapshot = await _db
         .collection('stock_adjustments')
         .where('productId', isEqualTo: productId)
+        .orderBy('createdAt', descending: true)
         .get();
 
     final List<StockMovement> movements = [];
     for (var doc in querySnapshot.docs) {
       final data = doc.data();
+      if (data['createdAt'] == null) continue;
+
       final type = data['type'] as String;
       final quantity = data['quantity'] as int;
       final change = type == 'in' ? quantity : -quantity;

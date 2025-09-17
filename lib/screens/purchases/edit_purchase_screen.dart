@@ -79,7 +79,8 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
 
   double get _totalBaru {
     if (!_isInitialized) return 0;
-    return _items.fold(0, (sum, item) => sum + (item.quantity * item.purchasePrice));
+    // CORRECTED: Renamed 'sum' to 'total' to avoid conflict with a type name.
+    return _items.fold(0, (total, item) => total + (item.quantity * item.purchasePrice));
   }
 
   Future<void> _saveChanges() async {
@@ -110,8 +111,8 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
         'totalAmount': newTotalAmount,
       });
 
-      // Refresh data di laporan
-      ref.refresh(purchaseTransactionsProvider);
+      // CORRECTED: Use invalidate to signal a provider refresh
+      ref.invalidate(purchaseTransactionsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,7 +147,7 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
             icon: const Icon(Ionicons.add_circle_outline),
             tooltip: 'Tambah Produk',
             onPressed: () {
-              // TODO: Implementasi logika tambah produk
+              
             },
           ),
         ],

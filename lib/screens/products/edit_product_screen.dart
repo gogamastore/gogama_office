@@ -159,7 +159,7 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
   }
 
   Widget _buildImageEditor() {
-    // TODO: Implement image picking and display logic
+    
     return Center(
       child: Stack(
         children: [

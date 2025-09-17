@@ -1,59 +1,30 @@
-# Blueprint Aplikasi Inventory Management
+# Blueprint Aplikasi
 
-## Ringkasan
+## Ikhtisar
 
-Aplikasi ini adalah sistem manajemen inventory yang dirancang untuk membantu pengguna melacak produk, mengelola pembelian dari supplier, mencatat penjualan, dan memantau data bisnis melalui laporan. Aplikasi ini dibangun dengan Flutter dan menggunakan Firebase sebagai backend.
+Aplikasi ini adalah aplikasi Point of Sale (POS) yang komprehensif untuk platform seluler, yang dirancang untuk membantu pemilik usaha kecil dan menengah mengelola penjualan, inventaris, dan pelanggan mereka secara efisien. Aplikasi ini dibangun di atas Flutter dan Firebase, memastikan kinerja lintas platform yang andal dan sinkronisasi data real-time.
 
-## Desain & Fitur yang Sudah Diimplementasikan
+## Desain dan Fitur
 
-### Arsitektur
-- **State Management:** Menggunakan `flutter_riverpod` untuk manajemen state yang reaktif dan terukur.
-- **Struktur Proyek:** Kode diorganisir berdasarkan fitur.
+### Versi Awal
 
-### Fitur Utama
-- **Manajemen Produk:** CRUD (Create, Read, Update, Delete) untuk produk.
-- **Manajemen Supplier:** CRUD untuk supplier.
-- **Manajemen Pembelian:** Membuat keranjang pembelian, mengedit item, dan memproses transaksi.
-- **Manajemen Pesanan:** CRUD (Create, Read, Update, Delete) untuk pesanan pelanggan.
-- **Dashboard Utama:** Pusat navigasi aplikasi.
+*   **Autentikasi**: Pengguna dapat masuk menggunakan email dan kata sandi. Firebase Auth digunakan untuk mengelola autentikasi pengguna.
+*   **Manajemen Produk**: Pengguna dapat menambahkan, mengedit, dan melihat produk. Setiap produk memiliki nama, deskripsi, harga, dan stok. Data produk disimpan di Cloud Firestore.
+*   **Manajemen Pelanggan**: Pengguna dapat menambahkan, mengedit, dan melihat pelanggan. Setiap pelanggan memiliki nama, email, dan nomor telepon. Data pelanggan disimpan di Cloud Firestore.
+*   **Pembuatan Pesanan**: Pengguna dapat membuat pesanan baru dengan menambahkan produk dari daftar dan menetapkan pelanggan. Total pesanan dihitung secara otomatis. Pesanan yang dibuat disimpan di Cloud Firestore.
+*   **Daftar Pesanan**: Pengguna dapat melihat daftar semua pesanan yang telah dibuat, termasuk detail seperti tanggal, pelanggan, dan status.
+*   **Laporan Transaksi Pembelian**: Pengguna dapat melihat laporan transaksi pembelian dalam rentang tanggal yang dipilih, dengan metrik utama, grafik tren, dan tabel transaksi yang dapat diklik untuk melihat detail faktur.
 
-### Gaya & Desain
-- **UI:** Menggunakan komponen Material Design 3.
-- **Tampilan Daftar:** Menggunakan `ListView.builder` dengan `Card` untuk menampilkan item.
+### Perubahan Saat Ini: Penyempurnaan Dialog Faktur Penjualan
 
-## Rencana Perubahan Saat Ini: Implementasi Fitur Validasi Pesanan (POS)
+*   **Provider Gambar Produk**: Membuat `lib/providers/product_images_provider.dart` untuk mengambil dan menyediakan URL gambar produk secara efisien ke seluruh aplikasi.
+*   **Dialog Faktur yang Ditingkatkan**: Merombak total dialog faktur di `lib/screens/reports/sales_report_screen.dart`.
+    *   **Menampilkan Gambar Produk**: Mengintegrasikan `productImagesProvider` untuk menampilkan gambar di samping setiap produk dalam rincian faktur.
+    *   **Tabel yang Dapat Digeser**: Membungkus tabel rincian dengan `SingleChildScrollView` untuk memungkinkan pengguliran horizontal, meningkatkan kegunaan pada layar yang lebih kecil.
+*   **Pengurutan Pesanan**: Memastikan pesanan dalam laporan diurutkan dari yang terbaru ke yang terlama.
+*   **Tata Letak Metrik yang Dioptimalkan**: Memprioritaskan metrik finansial utama di bagian atas halaman laporan.
+*   **Perbaikan Bug Kritis**: Menyelesaikan semua masalah tata letak dan error kompilasi sebelumnya.
 
-### Tujuan
-Membuat alur kerja baru untuk memvalidasi item dalam pesanan menggunakan pemindai barcode sebelum mengubah status pesanan menjadi "Processing". Ini bertujuan untuk meningkatkan akurasi dan efisiensi dalam proses pemenuhan pesanan.
+## Rencana Saat Ini: Selesai
 
-### Langkah-langkah Implementasi
-
-1.  **Persiapan Aset & Dependensi:**
-    *   Menambahkan package `audioplayers` ke `pubspec.yaml` untuk umpan balik suara.
-    *   Membuat folder `assets/sounds/` dan meminta pengguna untuk menambahkan file `success.mp3` dan `error.mp3`.
-    *   Mendeklarasikan folder aset di `pubspec.yaml`.
-
-2.  **Tombol Validasi di Detail Pesanan:**
-    *   Memodifikasi `lib/screens/orders/order_detail_screen.dart`.
-    *   Menambahkan tombol "Validasi Pesanan" yang hanya muncul jika status pesanan adalah "Pending".
-    *   Tombol ini akan menavigasikan pengguna ke halaman validasi baru.
-
-3.  **Membuat Halaman Validasi Pesanan:**
-    *   Membuat file baru: `lib/screens/orders/validate_order_screen.dart`.
-    *   Halaman ini akan berisi:
-        *   `TextField` untuk input barcode EAN-13.
-        *   Daftar produk dalam pesanan, dengan status visual "belum divalidasi" atau "sudah divalidasi".
-        *   Logika validasi real-time saat barcode di-scan.
-        *   Umpan balik suara (sukses/gagal) saat validasi.
-        *   Dialog untuk mengonfirmasi/mengedit jumlah saat produk berhasil divalidasi.
-        *   Tombol "Konfirmasi" di bagian bawah yang akan aktif hanya setelah semua item divalidasi.
-
-4.  **Membuat Halaman Ringkasan Validasi:**
-    *   Membuat file baru: `lib/screens/orders/validated_order_summary_screen.dart`.
-    *   Halaman ini akan menampilkan daftar produk yang sudah divalidasi.
-    *   Akan ada tombol "Proses Pesanan" di bagian bawah.
-
-5.  **Memperbarui Status Pesanan:**
-    *   Menambahkan fungsi `updateOrderStatus(String orderId, String status)` di `lib/services/order_service.dart`.
-    *   Mengekspos fungsi ini melalui `OrderProvider` di `lib/providers/order_provider.dart`.
-    *   Tombol "Proses Pesanan" akan memanggil fungsi ini untuk mengubah status di Firestore menjadi "Processing".
+Semua perubahan yang diminta telah diimplementasikan. Dialog faktur penjualan sekarang setara dengan dialog faktur pembelian, menampilkan gambar produk dan dapat digeser, memberikan pengalaman pengguna yang konsisten dan lebih baik.
