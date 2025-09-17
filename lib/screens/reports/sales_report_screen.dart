@@ -6,7 +6,7 @@ import 'package:ionicons/ionicons.dart';
 
 import '../../models/sales_report_data.dart';
 import '../../providers/sales_report_provider.dart';
-import '../../providers/product_images_provider.dart'; // Impor provider gambar
+import '../../providers/product_images_provider.dart';
 import '../../utils/formatter.dart' as formatter;
 
 class SalesReportScreen extends ConsumerStatefulWidget {
@@ -74,14 +74,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
             _buildFilterCard(notifier, state),
             const SizedBox(height: 16),
             if (state.isLoading)
-              const Center(child: Padding(
+              const Center(
+                  child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 48.0),
                 child: CircularProgressIndicator(),
-              ))
-            else if (state.errorMessage != null)
-              Center(
-                  child:
-                      Text('Gagal memuat data: ${state.errorMessage}'))
+              )) else if (state.errorMessage != null)
+              Center(child: Text('Gagal memuat data: ${state.errorMessage}'))
             else if (state.reportData != null) ...[
               _buildMetrics(state.reportData!),
               const SizedBox(height: 16),
@@ -178,7 +176,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, {Color? color}) {
+  Widget _buildMetricCard(String title, String value, IconData icon,
+      {Color? color}) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -225,8 +224,10 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   Widget _buildTrendsCard(SalesReportData data) {
     final Map<DateTime, double> dailyTotals = {};
     for (var order in data.orders) {
-      final date = DateTime(order.orderDate.toDate().year, order.orderDate.toDate().month, order.orderDate.toDate().day);
-      dailyTotals.update(date, (value) => value + order.totalRevenue, ifAbsent: () => order.totalRevenue);
+      final date = DateTime(order.orderDate.toDate().year,
+          order.orderDate.toDate().month, order.orderDate.toDate().day);
+      dailyTotals.update(date, (value) => value + order.totalRevenue,
+          ifAbsent: () => order.totalRevenue);
     }
 
     final spots = dailyTotals.entries.map((entry) {
@@ -243,30 +244,41 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Tren Penjualan', style: Theme.of(context).textTheme.titleLarge),
-            Text('Visualisasi pendapatan harian', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey)),
+            Text('Visualisasi pendapatan harian',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey)),
             const SizedBox(height: 24),
             if (spots.length > 1)
               SizedBox(
                 height: 200,
                 child: LineChart(
                   LineChartData(
-                    gridData: const FlGridData(show: true, drawVerticalLine: false),
+                    gridData:
+                        const FlGridData(show: true, drawVerticalLine: false),
                     titlesData: FlTitlesData(
                       show: true,
-                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
                           reservedSize: 30,
                           getTitlesWidget: (value, meta) {
-                            final date = DateTime.fromMillisecondsSinceEpoch(value.toInt());
+                            final date = DateTime.fromMillisecondsSinceEpoch(
+                                value.toInt());
                             return Padding(
                               padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(DateFormat('dd/MM').format(date), style: const TextStyle(fontSize: 10)),
+                              child: Text(DateFormat('dd/MM').format(date),
+                                  style: const TextStyle(fontSize: 10)),
                             );
                           },
-                          interval: spots.length > 5 ? (spots.last.x - spots.first.x) / 4 : null,
+                          interval: spots.length > 5
+                              ? (spots.last.x - spots.first.x) / 4
+                              : null,
                         ),
                       ),
                       leftTitles: AxisTitles(
@@ -276,13 +288,19 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                           getTitlesWidget: (value, meta) {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
-                              child: Text(NumberFormat.compactCurrency(locale: 'id_ID', symbol: 'Rp').format(value), style: const TextStyle(fontSize: 10)),
+                              child: Text(
+                                  NumberFormat.compactCurrency(
+                                          locale: 'id_ID', symbol: 'Rp')
+                                      .format(value),
+                                  style: const TextStyle(fontSize: 10)),
                             );
                           },
                         ),
                       ),
                     ),
-                    borderData: FlBorderData(show: true, border: Border.all(color: Colors.grey.shade300)),
+                    borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(color: Colors.grey.shade300)),
                     minX: spots.first.x,
                     maxX: spots.last.x,
                     lineBarsData: [
@@ -293,16 +311,17 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                         barWidth: 3,
                         isStrokeCapRound: true,
                         dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(show: true, color: Theme.of(context).primaryColor.withAlpha(50)),
+                        belowBarData: BarAreaData(show: true,
+                            color: Theme.of(context).primaryColor.withAlpha(50)),
                       ),
                     ],
                   ),
                 ),
-              )
-            else
+              ) else
               const SizedBox(
                 height: 200,
-                child: Center(child: Text('Data tidak cukup untuk menampilkan grafik.')),
+                child: Center(
+                    child: Text('Data tidak cukup untuk menampilkan grafik.')),
               ),
           ],
         ),
@@ -315,32 +334,53 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       elevation: 1,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: DataTable(
-        showCheckboxColumn: false,
-        columnSpacing: 24,
-        columns: const [
-          DataColumn(label: Text('Tanggal')),
-          DataColumn(label: Text('Pelanggan')),
-          DataColumn(label: Text('Total'), numeric: true),
-          DataColumn(label: Text('Laba'), numeric: true),
-        ],
-        rows: data.orders.map((order) {
-          return DataRow(
-            onSelectChanged: (isSelected) {
-              if (isSelected ?? false) {
-                _showInvoiceDialog(context, order);
-              }
-            },
-            cells: [
-              DataCell(Text(DateFormat('dd MMM yyyy').format(order.orderDate.toDate()))),
-              DataCell(Text(order.customerName, overflow: TextOverflow.ellipsis)),
-              DataCell(Text(formatter.formatCurrency(order.totalRevenue))),
-              DataCell(Text(formatter.formatCurrency(order.grossProfit))),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal, // Aktifkan scroll horizontal
+        child: ConstrainedBox(
+           constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width), // Pastikan tabel memenuhi lebar layar
+          child: DataTable(
+            showCheckboxColumn: false,
+            columnSpacing: 24,
+            columns: const [
+              DataColumn(label: Text('Tanggal')),
+              DataColumn(label: Text('Pelanggan')),
+              DataColumn(label: Text('Total'), numeric: true),
+              DataColumn(label: Text('Status')),
             ],
-          );
-        }).toList(),
+            rows: data.orders.map((order) {
+              return DataRow(
+                onSelectChanged: (isSelected) {
+                  if (isSelected ?? false) {
+                    _showInvoiceDialog(context, order);
+                  }
+                },
+                cells: [
+                  DataCell(Text(DateFormat('dd MMM yyyy')
+                      .format(order.orderDate.toDate()))),
+                  DataCell(
+                      Text(order.customerName, overflow: TextOverflow.ellipsis)),
+                  DataCell(Text(formatter.formatCurrency(order.totalRevenue))),
+                  DataCell(Text(_translateStatus(order.status))),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ),
     );
+  }
+
+ String _translateStatus(String status) {
+    switch (status) {
+      case 'Processing':
+        return 'Perlu Dikirim';
+      case 'Shipped':
+        return 'Selesai';
+      case 'Delivered':
+        return 'Dikirim';
+      default:
+        return status;
+    }
   }
 
   void _showInvoiceDialog(BuildContext context, SalesReportOrder order) {
@@ -350,7 +390,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       context: context,
       builder: (context) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 600, maxWidth: 600),
             child: Stack(
@@ -361,22 +402,41 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('Faktur Penjualan', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                      Text('#${order.orderId}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey, overflow: TextOverflow.ellipsis)),
+                      Text('Faktur Penjualan',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('#${order.orderId}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color: Colors.grey,
+                                  overflow: TextOverflow.ellipsis)),
                       const SizedBox(height: 16),
-                      Text('Tanggal: ${DateFormat('dd MMMM yyyy').format(order.orderDate.toDate())}'),
+                      Text(
+                          'Tanggal: ${DateFormat('dd MMMM yyyy').format(order.orderDate.toDate())}'),
                       Text('Pelanggan: ${order.customerName}'),
                       const Divider(height: 24),
-                      Text('Rincian Produk Terjual', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('Rincian Produk Terjual',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Expanded(
                         child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal, // Mengaktifkan scroll horizontal
+                          scrollDirection: Axis.horizontal,
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width * 0.75), // Pastikan tabel cukup lebar
+                            constraints: BoxConstraints(
+                                minWidth: MediaQuery.of(context).size.width *
+                                    0.75), 
                             child: images.when(
-                              loading: () => const Center(child: CircularProgressIndicator()),
-                              error: (err, stack) => const Center(child: Text('Gagal memuat gambar')),
+                              loading: () =>
+                                  const Center(child: CircularProgressIndicator()),
+                              error: (err, stack) =>
+                                  const Center(child: Text('Gagal memuat gambar')),
                               data: (imageMap) {
                                 return DataTable(
                                   columnSpacing: 18,
@@ -384,7 +444,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                                     DataColumn(label: Text('Produk')),
                                     DataColumn(label: Text('Jml'), numeric: true),
                                     DataColumn(label: Text('Harga'), numeric: true),
-                                    DataColumn(label: Text('Subtotal'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Subtotal'), numeric: true),
                                   ],
                                   rows: order.items.map((item) {
                                     final imageUrl = imageMap[item.productId];
@@ -395,25 +456,38 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                                             children: [
                                               if (imageUrl != null)
                                                 Padding(
-                                                  padding: const EdgeInsets.only(right: 8.0),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          right: 8.0),
                                                   child: Image.network(
                                                     imageUrl,
                                                     width: 40,
                                                     height: 40,
                                                     fit: BoxFit.cover,
-                                                    errorBuilder: (context, error, stackTrace) => 
-                                                      const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                                                    errorBuilder: (context,
+                                                            error,
+                                                            stackTrace) =>
+                                                        const Icon(
+                                                            Icons.broken_image,
+                                                            size: 40,
+                                                            color: Colors.grey),
                                                   ),
                                                 ),
                                               Expanded(
-                                                child: Text(item.productName, overflow: TextOverflow.ellipsis, maxLines: 2),
+                                                child: Text(
+                                                    item.productName,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    maxLines: 2),
                                               ),
                                             ],
                                           ),
                                         ),
                                         DataCell(Text(item.quantity.toString())),
-                                        DataCell(Text(formatter.formatCurrency(item.salePrice))),
-                                        DataCell(Text(formatter.formatCurrency(item.totalSale))),
+                                        DataCell(Text(formatter
+                                            .formatCurrency(item.salePrice))),
+                                        DataCell(Text(formatter
+                                            .formatCurrency(item.totalSale))),
                                       ],
                                     );
                                   }).toList(),
@@ -424,9 +498,14 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                         ),
                       ),
                       const Divider(height: 24),
-                      _buildDialogTotalRow(context, 'Total Penjualan', formatter.formatCurrency(order.totalRevenue)),
-                      _buildDialogTotalRow(context, 'Total Pokok (HPP)', formatter.formatCurrency(order.totalCogs)),
-                      _buildDialogTotalRow(context, 'Laba Kotor', formatter.formatCurrency(order.grossProfit), isProfit: true),
+                      _buildDialogTotalRow(context, 'Total Penjualan',
+                          formatter.formatCurrency(order.totalRevenue)),
+                      _buildDialogTotalRow(context, 'Total Pokok (HPP)',
+                          formatter.formatCurrency(order.totalCogs)),
+                      _buildDialogTotalRow(
+                          context, 'Laba Kotor',
+                          formatter.formatCurrency(order.grossProfit),
+                          isProfit: true),
                     ],
                   ),
                 ),
@@ -446,7 +525,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  Widget _buildDialogTotalRow(BuildContext context, String label, String value, {bool isProfit = false}) {
+  Widget _buildDialogTotalRow(BuildContext context, String label, String value,
+      {bool isProfit = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -456,9 +536,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           Text(
             value,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isProfit ? Colors.green.shade700 : null,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: isProfit ? Colors.green.shade700 : null,
+                ),
           ),
         ],
       ),

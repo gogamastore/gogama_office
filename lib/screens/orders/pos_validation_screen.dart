@@ -1,4 +1,4 @@
-import 'dart:developer';
+import 'dart:developer' as developer;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +30,6 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
   @override
   void initState() {
     super.initState();
-    // --- PERBAIKAN: Konversi OrderProduct menjadi OrderItem saat inisialisasi ---
     _unscannedProducts = widget.order.products.map((p) => OrderItem(
       productId: p.productId,
       name: p.name,
@@ -56,25 +55,42 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         _unscannedProducts.removeWhere((p) => p.sku == sku);
         _validatedProducts[sku] = productInOrder;
         if (!_confirmedQuantities.containsKey(sku)) {
-          // --- PERBAIKAN: Inisialisasi jumlah terkonfirmasi dengan jumlah pesanan ---
           _confirmedQuantities[sku] = productInOrder.quantity;
         }
       });
       _manualInputController.clear();
-      _audioPlayer.play(AssetSource('sounds/success.mp3'));
-      // Langsung buka dialog setelah produk berhasil divalidasi
+      _playSound('sounds/success.mp3');
       _showQuantityDialog(productInOrder);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('SKU tidak ditemukan atau sudah divalidasi.'), backgroundColor: Colors.orange),
       );
-      _audioPlayer.play(AssetSource('sounds/error.mp3'));
+      _playSound('sounds/error.mp3'); // THE FIX: Use the robust play sound method
+    }
+  }
+
+  // Robust method to play sound and handle errors
+  Future<void> _playSound(String soundPath) async {
+    try {
+      await _audioPlayer.play(AssetSource(soundPath));
+    } catch (e, stackTrace) {
+      developer.log(
+        'Gagal memainkan suara: $soundPath',
+        name: 'PosValidationScreen',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Optional: Show a snackbar if sound fails, but don't pop the screen.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memutar efek suara: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   Future<void> _navigateToScanner() async {
     try {
-      // Guard against using BuildContext across async gaps.
       if (!mounted) return;
       final scannedValue = await Navigator.of(context).push<String>(
         MaterialPageRoute(builder: (context) => const ScannerScreen()),
@@ -83,14 +99,13 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         _findAndAddProduct(scannedValue);
       }
     } catch (e) {
-      log('Error saat navigasi ke pemindai: $e');
+      developer.log('Error saat navigasi ke pemindai: $e');
        if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuka pemindai: $e')));
     }
   }
 
   void _showQuantityDialog(OrderItem product) {
-    // --- PERBAIKAN: Gunakan jumlah yang ada atau default ke jumlah pesanan ---
     int currentQty = _confirmedQuantities[product.sku] ?? product.quantity;
     showDialog(
       context: context,

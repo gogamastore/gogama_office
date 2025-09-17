@@ -15,16 +15,27 @@ Aplikasi ini adalah aplikasi Point of Sale (POS) yang komprehensif untuk platfor
 *   **Daftar Pesanan**: Pengguna dapat melihat daftar semua pesanan yang telah dibuat, termasuk detail seperti tanggal, pelanggan, dan status.
 *   **Laporan Transaksi Pembelian**: Pengguna dapat melihat laporan transaksi pembelian dalam rentang tanggal yang dipilih, dengan metrik utama, grafik tren, dan tabel transaksi yang dapat diklik untuk melihat detail faktur.
 
-### Perubahan Saat Ini: Penyempurnaan Dialog Faktur Penjualan
+### Fitur Sebelumnya: Rombak Tabel Laporan Penjualan
 
-*   **Provider Gambar Produk**: Membuat `lib/providers/product_images_provider.dart` untuk mengambil dan menyediakan URL gambar produk secara efisien ke seluruh aplikasi.
-*   **Dialog Faktur yang Ditingkatkan**: Merombak total dialog faktur di `lib/screens/reports/sales_report_screen.dart`.
-    *   **Menampilkan Gambar Produk**: Mengintegrasikan `productImagesProvider` untuk menampilkan gambar di samping setiap produk dalam rincian faktur.
-    *   **Tabel yang Dapat Digeser**: Membungkus tabel rincian dengan `SingleChildScrollView` untuk memungkinkan pengguliran horizontal, meningkatkan kegunaan pada layar yang lebih kecil.
-*   **Pengurutan Pesanan**: Memastikan pesanan dalam laporan diurutkan dari yang terbaru ke yang terlama.
-*   **Tata Letak Metrik yang Dioptimalkan**: Memprioritaskan metrik finansial utama di bagian atas halaman laporan.
-*   **Perbaikan Bug Kritis**: Menyelesaikan semua masalah tata letak dan error kompilasi sebelumnya.
+*   **Filter Status Pesanan**: Memastikan laporan penjualan hanya menampilkan pesanan dengan status `Processing`, `Shipped`, dan `Delivered`.
+*   **Tabel Transaksi yang Ditingkatkan**: Merombak tabel utama di `lib/screens/reports/sales_report_screen.dart`.
+*   **Penyelesaian Bug Kritis**: Memperbaiki serangkaian bug pada logika pembuatan laporan penjualan, termasuk penanganan error untuk status huruf besar/kecil, batasan 30 item pada kueri `whereIn`, dan kesalahan tipe data `String?` vs `String`.
 
-## Rencana Saat Ini: Selesai
+## Rencana Saat Ini: Perbaikan Alur Error Pemindaian Barcode
 
-Semua perubahan yang diminta telah diimplementasikan. Dialog faktur penjualan sekarang setara dengan dialog faktur pembelian, menampilkan gambar produk dan dapat digeser, memberikan pengalaman pengguna yang konsisten dan lebih baik.
+**Tujuan**: Meningkatkan pengalaman pengguna di halaman validasi pesanan saat SKU produk yang dipindai tidak ditemukan.
+
+**Perilaku Salah Saat Ini**:
+Ketika SKU produk yang dipindai tidak ditemukan di database, aplikasi secara otomatis kembali ke halaman sebelumnya, yang mengganggu alur kerja pengguna.
+
+**Perilaku yang Diinginkan**:
+1.  **Tetap di Halaman**: Aplikasi harus tetap berada di halaman validasi pesanan.
+2.  **Tampilkan Pesan Error**: Sebuah pesan yang jelas (misalnya, "Produk tidak ditemukan") harus ditampilkan kepada pengguna, idealnya menggunakan `SnackBar`.
+3.  **Mainkan Efek Suara**: Aplikasi harus memainkan efek suara `error.mp3` yang sudah ada di dalam proyek untuk memberikan umpan balik auditori yang jelas.
+
+**Langkah Implementasi**:
+1.  Tambahkan dependensi `audioplayers` untuk fungsionalitas audio.
+2.  Pastikan aset suara `assets/sounds/error.mp3` terdaftar dengan benar di `pubspec.yaml`.
+3.  Identifikasi logika penanganan pemindaian di layar validasi pesanan.
+4.  Modifikasi blok `catch` atau alur penanganan error untuk mencegah navigasi kembali (`Navigator.pop`).
+5.  Implementasikan pemutaran suara `error.mp3` dan tampilkan `SnackBar` saat error terjadi.
