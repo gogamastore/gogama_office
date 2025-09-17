@@ -4,9 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
 
 import '../../models/product.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../services/stock_service.dart';
-import '../../services/sound_service.dart'; // DIPERBARUI: Impor SoundService
+import '../../providers/stock_provider.dart';
+import '../../services/sound_service.dart';
 import '../../widgets/stock_adjustment_dialog.dart';
 import '../products/barcode_scanner_screen.dart';
 
@@ -23,13 +24,12 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   String _searchTerm = '';
   bool _sortByLowestStock = false;
 
-  // DIPERBARUI: Buat instance SoundService
   late final SoundService _soundService;
 
   @override
   void initState() {
     super.initState();
-    _soundService = SoundService(); // Inisialisasi SoundService
+    _soundService = SoundService();
 
     _searchController.addListener(() {
       if (mounted) {
@@ -43,17 +43,17 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   @override
   void dispose() {
     _searchController.dispose();
-    _soundService.dispose(); // DIPERBARUI: Hapus SoundService
+    _soundService.dispose();
     super.dispose();
   }
 
-  // DIPERBARUI: Menggunakan SoundService untuk memutar suara
   Future<void> _navigateToScanner() async {
+    if (!mounted) return;
     final sku = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
     );
 
-    if (sku != null && mounted) {
+    if (sku != null) {
       _searchController.text = sku;
       await _soundService.playSuccessSound();
     } else {
@@ -70,6 +70,17 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
     );
 
     if (result != null && mounted) {
+      // --- PERBAIKAN KRITIS: Menggunakan provider 'authStateChangesProvider' yang benar ---
+      final user = ref.read(authStateChangesProvider).value;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: Anda tidak terautentikasi.')),
+          );
+        }
+        return;
+      }
+      
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -78,25 +89,30 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
         },
       );
 
-      final stockService = StockService();
       try {
-        await stockService.adjustStock(
-          productId: product.id,
-          adjustmentType: result['type'],
-          quantity: result['quantity'],
-          reason: result['reason'],
-        );
+        await ref.read(stockServiceProvider).adjustStock(
+              productId: product.id,
+              type: result['type'],
+              quantity: result['quantity'],
+              reason: result['reason'],
+              userId: user.uid,
+            );
 
-        Navigator.of(context).pop();
+        if (mounted) Navigator.of(context).pop();
 
-        await ref.refresh(allProductsProvider.future);
+        ref.invalidate(allProductsProvider);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Stok berhasil diperbarui')),
+            const SnackBar(
+              content: Text('Stok berhasil diperbarui'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } catch (e) {
-        Navigator.of(context).pop();
+        if (mounted) Navigator.of(context).pop();
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Gagal memperbarui stok: $e')),
@@ -225,7 +241,7 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
               label: Text('Stok: ${product.stock}'),
               labelStyle: TextStyle(color: stockColor, fontWeight: FontWeight.bold),
               backgroundColor: stockBackgroundColor,
-              side: BorderSide(color: stockColor.withOpacity(0.5)),
+              side: BorderSide(color: Color.alphaBlend(stockColor.withAlpha(128), stockBackgroundColor)),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             ),
             onTap: () {

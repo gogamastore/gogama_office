@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:ionicons/ionicons.dart';
+import '../purchases/edit_purchase_screen.dart';
 
 import '../../models/purchase_transaction.dart';
 import '../../providers/purchase_report_provider.dart';
@@ -171,7 +172,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
       children: [
         _buildMetricCard(
             'Total Pembelian', formatter.format(total), Ionicons.cash_outline),
-        _buildMetricCard('Total Transaksi', count.toString(),
+        _buildMetricCard('Jumlah Transaksi', count.toString(),
             Ionicons.document_text_outline),
       ],
     );
@@ -553,7 +554,14 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                                   label: const Text('Download')),
                               const SizedBox(width: 8),
                               TextButton.icon(
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    Navigator.of(context).pop(); // Tutup dialog
+                                    Navigator.of(context)
+                                        .push(MaterialPageRoute(
+                                      builder: (context) => EditPurchaseScreen(
+                                          transaction: transaction),
+                                    ));
+                                  },
                                   icon: const Icon(Ionicons.create_outline,
                                       size: 16),
                                   label: const Text('Edit')),

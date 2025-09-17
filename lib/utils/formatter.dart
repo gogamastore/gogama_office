@@ -33,7 +33,9 @@ String getStatusText(String status) {
       return 'Dibatalkan';
     default:
       // Membuat huruf pertama menjadi kapital secara otomatis
-      return status.isNotEmpty ? status[0].toUpperCase() + status.substring(1) : 'N/A';
+      return status.isNotEmpty
+          ? status[0].toUpperCase() + status.substring(1)
+          : 'N/A';
   }
 }
 

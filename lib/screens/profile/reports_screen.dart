@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
 
 import '../reports/purchase_report_screen.dart'; // Impor Halaman Laporan Pembelian
+import '../reports/stock_flow_report_screen.dart'; // Impor Halaman Laporan Arus Stok
 
 // Model sederhana untuk data kartu laporan
 class ReportCardData {
@@ -63,7 +64,9 @@ class ReportsScreen extends StatelessWidget {
         icon: Ionicons.swap_horizontal_outline,
         title: 'Laporan Arus Stok',
         description: 'Lacak riwayat pergerakan stok produk.',
-        onView: () => navigateToPlaceholder('Laporan Arus Stok'),
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const StockFlowReportScreen(),
+        )),
       ),
        ReportCardData(
         icon: Ionicons.cash_outline,
