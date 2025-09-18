@@ -9,7 +9,7 @@ import '../models/purchase.dart';
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // --- FUNGSI LAPORAN UTANG DAGANG ---
+  // --- FUNGSI LAPORAN UTANG DAGANG (DIPERBAIKI FINAL) ---
   Future<List<Purchase>> generatePayableReport({
     required DateTime startDate,
     required DateTime endDate,
@@ -20,26 +20,25 @@ class ReportService {
     final query = _db
         .collection('purchase_transactions')
         .where('paymentMethod', whereIn: ['credit', 'Credit'])
-        .where('purchaseDate', isGreaterThanOrEqualTo: inclusiveStartDate)
-        .where('purchaseDate', isLessThan: exclusiveEndDate);
+        .where('date', isGreaterThanOrEqualTo: inclusiveStartDate)
+        .where('date', isLessThan: exclusiveEndDate);
 
     final snapshot = await query.get();
 
+    // KESALAHAN ADA DI SINI. FILTER 'paymentStatus' DIHAPUS.
+    // Sekarang kita hanya mengambil semua yang 'paymentMethod'-nya kredit.
     final List<Purchase> payableList = snapshot.docs
-        .where((doc) {
-          final data = doc.data();
-          return data['paymentStatus'] != 'paid';
-        })
         .map((doc) => Purchase.fromMap(doc.id, doc.data()))
         .toList();
 
-    payableList.sort((a, b) => a.purchaseDate.compareTo(b.purchaseDate));
+    payableList.sort((a, b) => a.date.compareTo(b.date));
 
     return payableList;
   }
 
-  // --- FUNGSI LAPORAN PIUTANG ---
-  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _fetchOrdersByPaymentStatus(
+  // --- FUNGSI-FUNGSI LAINNYA (TETAP SAMA) ---
+
+   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _fetchOrdersByPaymentStatus(
     String paymentStatus,
     DateTime startDate,
     DateTime endDate,
@@ -100,7 +99,6 @@ class ReportService {
     return receivableList;
   }
   
-  // --- FUNGSI PENJUALAN PRODUK ---
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _fetchOrdersByStatus(
     String status,
     DateTime startDate,
@@ -139,7 +137,7 @@ class ReportService {
       for (var productInOrder in orderData.products) {
         salesAggregation.update(
           productInOrder.productId,
-          (value) => value + productInOrder.quantity, // <-- DIPERBAIKI
+          (value) => value + productInOrder.quantity,
           ifAbsent: () => productInOrder.quantity,
         );
       }
