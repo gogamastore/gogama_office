@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
 
-import '../reports/purchase_report_screen.dart'; // Impor Halaman Laporan Pembelian
-import '../reports/stock_flow_report_screen.dart'; // Impor Halaman Laporan Arus Stok
+import '../reports/purchase_report_screen.dart';
+import '../reports/stock_flow_report_screen.dart';
 import '../reports/sales_report_screen.dart';
+import '../reports/product_sales_report_screen.dart';
+import '../reports/receivable_report_screen.dart';
+import '../reports/payable_report_screen.dart'; // <<< IMPORT HALAMAN BARU
 
 // Model sederhana untuk data kartu laporan
 class ReportCardData {
@@ -35,8 +38,7 @@ class ReportsScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.hourglass_empty,
-                      size: 80, color: Colors.grey),
+                  const Icon(Icons.hourglass_empty, size: 80, color: Colors.grey),
                   const SizedBox(height: 16),
                   Text(
                     'Halaman $reportName\nakan segera hadir!',
@@ -60,7 +62,6 @@ class ReportsScreen extends StatelessWidget {
         icon: Ionicons.document_text_outline,
         title: 'Laporan Transaksi Pembelian',
         description: 'Lacak semua transaksi pembelian stok.',
-        // DIPERBARUI: Navigasi ke halaman laporan pembelian
         onView: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (context) => const PurchaseReportScreen(),
         )),
@@ -85,20 +86,28 @@ class ReportsScreen extends StatelessWidget {
         icon: Ionicons.cube_outline,
         title: 'Penjualan Produk',
         description: 'Analisis penjualan per item produk.',
-        onView: () => navigateToPlaceholder('Laporan Penjualan Produk'),
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const ProductSalesReportScreen(),
+        )),
       ),
       ReportCardData(
         icon: Ionicons.document_attach_outline,
         title: 'Laporan Piutang Usaha',
         description: 'Lacak pesanan yang belum dibayar.',
-        onView: () => navigateToPlaceholder('Laporan Piutang'),
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const ReceivableReportScreen(),
+        )),
       ),
+       // --- PERUBAHAN DI SINI ---
       ReportCardData(
         icon: Ionicons.receipt_outline,
         title: 'Laporan Utang Dagang',
         description: 'Lacak pembelian kredit yang belum lunas.',
-        onView: () => navigateToPlaceholder('Laporan Utang'),
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const PayableReportScreen(),
+        )),
       ),
+      // --------------------------
       ReportCardData(
         icon: Ionicons.people_outline,
         title: 'Laporan Pelanggan',

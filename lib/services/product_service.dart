@@ -11,15 +11,28 @@ class ProductService {
   // Mendapatkan semua produk secara real-time, diurutkan berdasarkan nama
   Stream<List<Product>> getProducts() {
     return _productsCollection.orderBy('name').snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => Product.fromFirestore(doc)).toList();
+      final products = <Product>[];
+      for (var doc in snapshot.docs) {
+        try {
+          products.add(Product.fromFirestore(doc));
+        } catch (e) {
+          print('Gagal mem-parsing produk dengan ID: ${doc.id}, error: $e');
+          // Lewati produk yang error dan lanjutkan
+        }
+      }
+      return products;
     });
   }
 
   // Mendapatkan satu produk berdasarkan ID secara real-time
   Stream<Product?> getProductById(String productId) {
     return _productsCollection.doc(productId).snapshots().map((snapshot) {
-      if (snapshot.exists) {
-        return Product.fromFirestore(snapshot);
+      try {
+        if (snapshot.exists) {
+          return Product.fromFirestore(snapshot);
+        }
+      } catch (e) {
+        print('Gagal mem-parsing produk dengan ID: $productId, error: $e');
       }
       return null;
     });
@@ -32,7 +45,6 @@ class ProductService {
         .orderBy('purchaseDate', descending: true)
         .snapshots()
         .map((snapshot) {
-      // PERBAIKAN: Gunakan fromFirestore(doc) yang benar
       return snapshot.docs
           .map((doc) => PurchaseHistoryEntry.fromFirestore(doc))
           .toList();
