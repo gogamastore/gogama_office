@@ -1,7 +1,6 @@
 
 // --- FUNGSI UTILITAS GLOBAL ---
 
-// Mengubah harga (apapun formatnya) menjadi double.
 double parsePrice(dynamic price) {
   if (price is double) return price;
   if (price is int) return price.toDouble();
@@ -12,7 +11,6 @@ double parsePrice(dynamic price) {
   return 0.0;
 }
 
-// *** BARU: Mengubah nilai (apapun formatnya) menjadi String atau null. ***
 String? parseStringOrNull(dynamic value) {
   if (value == null) return null;
   if (value is String) return value;
@@ -23,7 +21,7 @@ class OrderProduct {
   final String productId;
   final String name;
   final int quantity;
-  final double price; // DIJAMIN double
+  final double price;
   final String? sku;
   final String? imageUrl;
 
@@ -36,14 +34,16 @@ class OrderProduct {
     this.imageUrl,
   });
 
+  // --- FACTORY METHOD YANG DIPERBAIKI ---
   factory OrderProduct.fromJson(Map<String, dynamic> json) {
     return OrderProduct(
       productId: json['productId'] as String,
       name: json['name'] as String,
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      price: parsePrice(json['price']), // Menggunakan helper harga
-      sku: parseStringOrNull(json['sku']), // *** DIPERBAIKI: Menggunakan helper string ***
-      imageUrl: json['imageUrl'] as String?,
+      price: parsePrice(json['price']), 
+      sku: parseStringOrNull(json['sku']), 
+      // **LOGIKA BARU**: Coba 'imageUrl', lalu fallback ke 'image'
+      imageUrl: json['imageUrl'] as String? ?? json['image'] as String?, 
     );
   }
 

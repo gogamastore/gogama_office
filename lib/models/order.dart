@@ -3,16 +3,22 @@ import './order_product.dart';
 
 // --- FUNGSI HELPER UNTUK PARSING YANG AMAN ---
 
-// ... (helper functions exist here, no changes needed)
 Timestamp _parseDate(dynamic date) {
   if (date is Timestamp) {
-    return date; // Tipe sudah benar
+    return date;
   }
   if (date is DateTime) {
-    return Timestamp.fromDate(date); // Handle jika datanya DateTime
+    return Timestamp.fromDate(date);
   }
-  // Fallback jika data null atau tipe tidak dikenal
   return Timestamp.now();
+}
+
+// Helper baru untuk tanggal yang bisa null
+Timestamp? _parseDateOrNull(dynamic date) {
+  if (date == null) return null;
+  if (date is Timestamp) return date;
+  if (date is DateTime) return Timestamp.fromDate(date);
+  return null;
 }
 
 double? _parseDouble(dynamic value) {
@@ -36,7 +42,6 @@ String? _parseStringOrNull(dynamic value) {
   return value.toString();
 }
 
-
 class Order {
   final String id;
   final String customer;
@@ -52,6 +57,7 @@ class Order {
   final double? shippingFee;
   final List<OrderProduct> products;
   final Timestamp? updatedAt;
+  final Timestamp? shippedAt; // <-- FIELD BARU DITAMBAHKAN
 
   Order({
     required this.id,
@@ -68,6 +74,7 @@ class Order {
     this.shippingFee,
     required this.products,
     this.updatedAt,
+    this.shippedAt, // <-- DITAMBAHKAN DI KONSTRUKTOR
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
@@ -105,10 +112,10 @@ class Order {
           [],
       updatedAt:
           data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
+      shippedAt: _parseDateOrNull(data['shippedAt']), // <-- LOGIKA PARSING DITAMBAHKAN
     );
   }
 
-  // --- PENAMBAHAN: Metode copyWith ---
   Order copyWith({
     String? id,
     String? customer,
@@ -119,7 +126,6 @@ class Order {
     String? total,
     String? paymentMethod,
     String? paymentStatus,
-    // Izinkan null untuk tipe data yang bisa null
     String? paymentProofUrl,
     bool allowNullPaymentProofUrl = false,
     String? shippingMethod,
@@ -128,6 +134,8 @@ class Order {
     List<OrderProduct>? products,
     Timestamp? updatedAt,
     bool allowNullUpdatedAt = false,
+    Timestamp? shippedAt, // <-- DITAMBAHKAN DI COPYWITH
+    bool allowNullShippedAt = false,
   }) {
     return Order(
       id: id ?? this.id,
@@ -144,6 +152,7 @@ class Order {
       shippingFee: allowNullShippingFee ? shippingFee : (shippingFee ?? this.shippingFee),
       products: products ?? this.products,
       updatedAt: allowNullUpdatedAt ? updatedAt : (updatedAt ?? this.updatedAt),
+      shippedAt: allowNullShippedAt ? shippedAt : (shippedAt ?? this.shippedAt), // <-- LOGIKA COPYWITH DITAMBAHKAN
     );
   }
 }

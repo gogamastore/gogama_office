@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ionicons/ionicons.dart';
-import '../../models/product.dart';
 import '../../providers/product_provider.dart';
 
 class SelectProductScreen extends ConsumerStatefulWidget {

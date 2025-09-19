@@ -8,7 +8,6 @@ import '../../providers/stock_provider.dart';
 class StockHistoryDialog extends ConsumerWidget {
   final String productId;
 
-  // --- MODIFIKASI: Menghapus parameter dateRange ---
   const StockHistoryDialog({
     super.key,
     required this.productId,
@@ -16,7 +15,6 @@ class StockHistoryDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // --- MODIFIKASI: Memanggil provider hanya dengan productId ---
     final historyAsync = ref.watch(stockHistoryProvider(productId));
 
     final dateFormat = DateFormat('dd MMM yyyy, HH:mm');
@@ -41,13 +39,26 @@ class StockHistoryDialog extends ConsumerWidget {
             return _buildHistoryList(movements, dateFormat, numberFormat);
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Center(
-            child: Text(
-              'Gagal memuat riwayat: $err',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
-            ),
-          ),
+          // --- MODIFIKASI SEMENTARA UNTUK DEBUGGING ---
+          error: (err, stack) {
+            // Ini akan mencetak link ke Debug Console
+            print('--- START FIREBASE INDEX ERROR ---');
+            print(err);
+            print(stack);
+            print('--- END FIREBASE INDEX ERROR: COPY URL FROM THE TEXT ABOVE ---');
+            
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Gagal memuat. Link untuk membuat indeks Firestore telah dicetak di "DEBUG CONSOLE".\n\nBuka tab "DEBUG CONSOLE" di IDE Anda, salin link-nya, dan buka di browser.\n\nDetail Eror: $err',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
+          },
+          // --- AKHIR MODIFIKASI SEMENTARA ---
         ),
       ),
       actions: [

@@ -10,11 +10,11 @@ class ProductSalesList extends StatelessWidget {
 
   // --- PERBAIKAN DI SINI: Gunakan sintaksis konstruktor gaya lama ---
   const ProductSalesList({
-    Key? key, // Tambahkan parameter key
+    super.key, // Tambahkan parameter key
     required this.reportData,
     required this.startDate,
     required this.endDate,
-  }) : super(key: key); // Teruskan key ke super-constructor
+  }); // Teruskan key ke super-constructor
   // ----------------------------------------------------------------
 
   @override

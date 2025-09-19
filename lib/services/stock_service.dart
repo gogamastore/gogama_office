@@ -80,12 +80,19 @@ class StockService {
     return calculatedMovements;
   }
 
-  // --- FINAL: Menyertakan status 'Processing' sebagai stok keluar ---
   Future<List<StockMovement>> _getSalesMovements(String productId) async {
+    const List<String> statusVariations = [
+      'Pending', 'pending',
+      'processing', 'Processing',
+      'shipped', 'Shipped',
+      'delivered', 'Delivered',
+      'completed', 'Completed'
+    ];
+
     final querySnapshot = await _db
         .collection('orders')
         .where('productIds', arrayContains: productId)
-        .where('status', whereIn: ['Processing', 'Shipped', 'Delivered']) // DIPERBARUI
+        .where('status', whereIn: statusVariations)
         .orderBy('date', descending: true)
         .get();
 
@@ -117,7 +124,7 @@ class StockService {
     final querySnapshot = await _db
         .collection('orders')
         .where('productIds', arrayContains: productId)
-        .where('status', isEqualTo: 'Cancelled')
+        .where('status', whereIn: ['Cancelled', 'cancelled']) 
         .orderBy('date', descending: true)
         .get();
 
@@ -134,7 +141,7 @@ class StockService {
             movements.add(StockMovement(
               date: (data['date'] as Timestamp).toDate(),
               description: 'Pembatalan - Order #${doc.id.substring(0, 6)}',
-              change: quantity,
+              change: quantity, 
               type: StockMovementType.cancellation,
               referenceId: doc.id,
             ));
