@@ -8,6 +8,16 @@ import '../models/order_item.dart';
 class OrderService {
   final _db = FirebaseFirestore.instance;
 
+  // --- METODE BARU DITAMBAHKAN DI SINI ---
+  Future<void> markOrderAsPaid(String orderId) async {
+    final orderRef = _db.collection('orders').doc(orderId);
+    await orderRef.update({
+      'paymentStatus': 'Paid',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+  // --- AKHIR METODE BARU ---
+
   Future<List<OrderProduct>> _enrichProducts(
       List<OrderProduct> orderProducts) async {
     if (orderProducts.isEmpty) return [];

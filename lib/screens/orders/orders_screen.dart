@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
@@ -96,7 +97,6 @@ class OrdersScreen extends ConsumerWidget {
     final activeFilter = ref.watch(orderFilterProvider);
     final counts = ref.watch(orderStatusCountsProvider);
 
-    // --- PERUBAHAN DI SINI: Menghapus filter 'Semua' ---
     final statusFilters = [
       {'key': 'pending', 'label': 'Belum Proses'},
       {'key': 'processing', 'label': 'Perlu Dikirim'},
@@ -113,7 +113,6 @@ class OrdersScreen extends ConsumerWidget {
           children: statusFilters.map((filter) {
             final key = filter['key']!;
             final label = filter['label']!;
-            // Menggunakan counts provider langsung
             final count = counts[key] ?? 0;
             final isActive = activeFilter == key;
 
@@ -163,7 +162,8 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-    Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
+  // --- PERUBAHAN UTAMA ADA DI FUNGSI INI ---
+  Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final double totalValue = double.tryParse(order.total.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
 
@@ -267,15 +267,7 @@ class OrdersScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: TextButton.icon(
-                      onPressed: order.paymentProofUrl != null ? () { /* Logika lihat bukti bayar */ } : null,
-                      icon: Icon(Ionicons.receipt_outline, color: order.paymentProofUrl != null ? const Color(0xFF3498DB) : Colors.grey, size: 18),
-                      label: Text('Bukti Bayar', style: TextStyle(fontWeight: FontWeight.bold, color: order.paymentProofUrl != null ? const Color(0xFF3498DB) : Colors.grey)),
-                      style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
+                    child: _buildPaymentButton(context, ref, order), // Panggil widget tombol baru
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -310,6 +302,78 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
+  // --- WIDGET BARU UNTUK TOMBOL PEMBAYARAN ---
+  Widget _buildPaymentButton(BuildContext context, WidgetRef ref, Order order) {
+    final bool isUnpaid = order.paymentStatus.toLowerCase() == 'unpaid';
+    final bool hasProof = order.paymentProofUrl != null && order.paymentProofUrl!.isNotEmpty;
+
+    if (isUnpaid) {
+      // Tombol "Tandai Lunas" untuk status unpaid
+      return TextButton.icon(
+        onPressed: () async {
+          final bool? confirmed = await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Konfirmasi Pelunasan'),
+              content: const Text('Apakah pesanan ini sudah benar-benar lunas?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Batal'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Ya, Lunas', style: TextStyle(color: Colors.green)),
+                ),
+              ],
+            ),
+          );
+
+          if (confirmed == true && context.mounted) {
+            try {
+              await ref.read(orderServiceProvider).markOrderAsPaid(order.id);
+              ref.read(orderProvider.notifier).refresh();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Pesanan ditandai lunas.'), backgroundColor: Colors.green),
+              );
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Gagal memperbarui: $e'), backgroundColor: Colors.red),
+              );
+            }
+          }
+        },
+        icon: const Icon(Ionicons.checkmark_circle, color: Color(0xFF27AE60), size: 18),
+        label: const Text('Tandai Lunas', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF27AE60))),
+        style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } else {
+      // Tombol "Bukti Bayar" untuk status lainnya
+      return TextButton.icon(
+        onPressed: hasProof ? () async {
+          final Uri url = Uri.parse(order.paymentProofUrl!);
+          if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+              if(context.mounted){
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Gagal membuka URL.')),
+              );
+            }
+          }
+        } : null, // onPressed: null akan menonaktifkan tombol
+        icon: Icon(Ionicons.receipt_outline, color: hasProof ? const Color(0xFF3498DB) : Colors.grey, size: 18),
+        label: Text('Bukti Bayar', style: TextStyle(fontWeight: FontWeight.bold, color: hasProof ? const Color(0xFF3498DB) : Colors.grey)),
+        style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
+  }
+  // --- AKHIR WIDGET BARU ---
+
   Widget _buildEmptyState(String activeFilter) {
     return Center(
       child: Padding(
@@ -339,7 +403,6 @@ class OrdersScreen extends ConsumerWidget {
     }
   }
 
-
   Color _getStatusColor(String status) {
     switch (status) {
       case 'delivered': return const Color(0xFF27AE60);
@@ -353,7 +416,6 @@ class OrdersScreen extends ConsumerWidget {
 
   String _getStatusText(String status) {
     switch (status) {
-      // Hapus 'all' dari sini agar tidak error jika dipanggil di tempat lain
       case 'delivered': return 'Selesai';
       case 'shipped': return 'Dikirim';
       case 'processing': return 'Perlu Dikirim';

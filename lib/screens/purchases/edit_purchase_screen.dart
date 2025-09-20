@@ -1,12 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:myapp/services/purchase_service.dart';
 import '../../models/purchase_transaction.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/purchase_report_provider.dart';
 
-// Definisikan class lokal untuk menampung data item yang bisa diedit.
+final purchaseServiceProvider = Provider<PurchaseService>((ref) => PurchaseService());
+
 class _EditableItem {
   final String productId;
   final String productName;
@@ -34,25 +36,67 @@ class EditPurchaseScreen extends ConsumerStatefulWidget {
 
 class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
   late List<_EditableItem> _items;
+  // --- PERBAIKAN: Simpan controllers di state ---
+  late List<TextEditingController> _priceControllers;
   bool _isInitialized = false;
   bool _isSaving = false;
   final _currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
-  // Inisialisasi item dilakukan setelah data gambar tersedia
-  void _initializeItems(Map<String, String> productImages) {
-    if (!_isInitialized) {
-      _items = widget.transaction.items.map((item) {
-        // Ambil imageUrl dari map productImages
-        return _EditableItem(
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          purchasePrice: item.purchasePrice,
-          imageUrl: productImages[item.productId],
-        );
-      }).toList();
-      _isInitialized = true;
+  @override
+  void initState() {
+    super.initState();
+    _items = [];
+    _priceControllers = [];
+    // Inisialisasi data dari widget
+    _initializeItemsFromWidget();
+  }
+
+  void _initializeItemsFromWidget() {
+    final productImages = ref.read(productImagesProvider).asData?.value ?? {};
+
+    _items = widget.transaction.items.map((item) {
+      return _EditableItem(
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        purchasePrice: item.purchasePrice,
+        imageUrl: productImages[item.productId],
+      );
+    }).toList();
+
+    // --- PERBAIKAN: Buat controller hanya sekali ---
+    _priceControllers = _items.map((item) {
+      final controller = TextEditingController(text: item.purchasePrice.toStringAsFixed(0));
+      // Listener untuk update total saat harga berubah
+      controller.addListener(() {
+        final newPrice = double.tryParse(controller.text) ?? 0.0;
+        if (item.purchasePrice != newPrice) {
+           setState(() {
+             item.purchasePrice = newPrice;
+           });
+        }
+      });
+      return controller;
+    }).toList();
+
+    // Menandai bahwa inisialisasi selesai
+    // Gunakan addPostFrameCallback untuk memastikan build pertama selesai
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    });
+  }
+  
+  @override
+  void dispose() {
+    // --- PERBAIKAN: Hapus semua controller untuk mencegah memory leak ---
+    for (var controller in _priceControllers) {
+      controller.dispose();
     }
+    super.dispose();
   }
 
   void _updateQuantity(int index, int newQuantity) {
@@ -63,23 +107,17 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
     }
   }
 
-  void _updatePrice(int index, double newPrice) {
-    if (newPrice >= 0) {
-      setState(() {
-        _items[index].purchasePrice = newPrice;
-      });
-    }
-  }
-
   void _removeItem(int index) {
     setState(() {
+      // Hapus item dari data
       _items.removeAt(index);
+      // Hapus controller yang sesuai dan pastikan di-dispose
+      _priceControllers.removeAt(index).dispose();
     });
   }
 
   double get _totalBaru {
     if (!_isInitialized) return 0;
-    // CORRECTED: Renamed 'sum' to 'total' to avoid conflict with a type name.
     return _items.fold(0, (total, item) => total + (item.quantity * item.purchasePrice));
   }
 
@@ -103,20 +141,22 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
 
       final newTotalAmount = _totalBaru;
 
-      await FirebaseFirestore.instance
-          .collection('purchase_transactions')
-          .doc(widget.transaction.id)
-          .update({
-        'items': updatedItems,
-        'totalAmount': newTotalAmount,
-      });
+      await ref.read(purchaseServiceProvider).updatePurchaseTransaction(
+            transactionId: widget.transaction.id,
+            originalItems: widget.transaction.items,
+            newItems: updatedItems,
+            newTotalAmount: newTotalAmount,
+          );
 
-      // CORRECTED: Use invalidate to signal a provider refresh
       ref.invalidate(purchaseTransactionsProvider);
+      ref.invalidate(allProductsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaksi berhasil diperbarui')),
+          const SnackBar(
+              content: Text('Transaksi berhasil diperbarui dan stok disesuaikan'),
+              backgroundColor: Colors.green,
+          ),
         );
         Navigator.of(context).pop();
       }
@@ -137,49 +177,33 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final productImagesAsync = ref.watch(productImagesProvider);
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit Transaksi #${widget.transaction.id.substring(0, 7)}...'),
-        actions: [
-          IconButton(
-            icon: const Icon(Ionicons.add_circle_outline),
-            tooltip: 'Tambah Produk',
-            onPressed: () {
-              
-            },
-          ),
-        ],
       ),
-      body: productImagesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Gagal memuat data gambar: $err')),
-        data: (images) {
-          _initializeItems(images);
-          return Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: _items.length,
-                  itemBuilder: (context, index) {
-                    final item = _items[index];
-                    return _buildEditableItemCard(item, index);
-                  },
+      body: !_isInitialized
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16.0),
+                    itemCount: _items.length,
+                    itemBuilder: (context, index) {
+                      final item = _items[index];
+                      // --- PERBAIKAN: Gunakan controller yang sudah ada ---
+                      final priceController = _priceControllers[index];
+                      return _buildEditableItemCard(item, index, priceController);
+                    },
+                  ),
                 ),
-              ),
-              _buildSummary(),
-            ],
-          );
-        },
-      ),
+                _buildSummary(),
+              ],
+            ),
     );
   }
 
-  Widget _buildEditableItemCard(_EditableItem item, int index) {
-    final priceController = TextEditingController(text: item.purchasePrice.toStringAsFixed(0));
-
+  Widget _buildEditableItemCard(_EditableItem item, int index, TextEditingController priceController) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -190,7 +214,6 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Gambar Produk
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Image.network(
@@ -198,30 +221,28 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
                     width: 60,
                     height: 60,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => 
-                      Container(width: 60, height: 60, color: Colors.grey[200], child: const Icon(Ionicons.image_outline, color: Colors.grey)),
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(width: 60, height: 60, color: Colors.grey[200], child: const Icon(Ionicons.image_outline, color: Colors.grey)),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Nama dan Tombol Hapus
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(item.productName, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 8),
-                      // Input Harga
                       SizedBox(
                         height: 40,
                         child: TextField(
+                          // --- PERBAIKAN: Gunakan controller dari state ---
                           controller: priceController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(
-                            labelText: 'Harga Beli (Satuan)',
+                            labelText: 'Harga Beli',
                             border: OutlineInputBorder(),
                             contentPadding: EdgeInsets.symmetric(horizontal: 10),
                           ),
-                          onSubmitted: (value) => _updatePrice(index, double.tryParse(value) ?? item.purchasePrice),
                         ),
                       ),
                     ],
@@ -234,11 +255,10 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            // Kontrol Jumlah
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Jumlah', style: TextStyle(fontSize: 14)),
+                const Text('Jumlah'),
                 Row(
                   children: [
                     IconButton(icon: const Icon(Ionicons.remove_circle_outline), onPressed: () => _updateQuantity(index, item.quantity - 1)),
@@ -246,7 +266,6 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
                     IconButton(icon: const Icon(Ionicons.add_circle_outline), onPressed: () => _updateQuantity(index, item.quantity + 1)),
                   ],
                 ),
-                // Subtotal
                 Text(
                   _currencyFormatter.format(item.quantity * item.purchasePrice),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),

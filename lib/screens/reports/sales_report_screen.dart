@@ -21,13 +21,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final notifier = ref.read(salesReportProvider.notifier);
-      final initialDateRange = DateTimeRange(
-        start: DateTime.now().subtract(const Duration(days: 30)),
-        end: DateTime.now(),
-      );
-      notifier.setDateRange(initialDateRange);
-      notifier.generateReport();
+      // Panggil setFilter untuk mengatur default ke hari ini dan memuat data
+      ref.read(salesReportProvider.notifier).setFilter(SalesReportFilterType.today);
     });
   }
 
@@ -43,14 +38,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       notifier.setDateRange(picked);
       notifier.generateReport();
     }
-  }
-
-  void _resetFilter(SalesReportNotifier notifier) {
-    final now = DateTime.now();
-    final dateRange =
-        DateTimeRange(start: now.subtract(const Duration(days: 30)), end: now);
-    notifier.setDateRange(dateRange);
-    notifier.generateReport();
   }
 
   @override
@@ -94,6 +81,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
+  // --- UI FILTER BARU --- 
   Widget _buildFilterCard(
       SalesReportNotifier notifier, SalesReportState state) {
     return Card(
@@ -106,40 +94,60 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
           children: [
             Text('Filter Data', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _selectDateRange(notifier),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Ionicons.calendar_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        state.selectedDateRange == null
-                            ? 'Pilih Tanggal'
-                            : '${DateFormat('dd MMM yyyy').format(state.selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(state.selectedDateRange!.end)}',
-                      ),
-                    ),
-                  ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip(notifier, state, SalesReportFilterType.today, 'Hari Ini'),
+                  _buildFilterChip(notifier, state, SalesReportFilterType.yesterday, 'Kemarin'),
+                  _buildFilterChip(notifier, state, SalesReportFilterType.last7days, '7 Hari Terakhir'),
+                  _buildFilterChip(notifier, state, SalesReportFilterType.thisMonth, 'Bulan Ini'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _selectDateRange(notifier),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Ionicons.calendar_outline),
+                  border: const OutlineInputBorder(),
+                  filled: state.activeFilter == SalesReportFilterType.custom,
+                  fillColor: Theme.of(context).primaryColor.withOpacity(0.1),
                 ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Ionicons.refresh_outline),
-                  onPressed: () => _resetFilter(notifier),
-                  tooltip: 'Reset Filter',
-                  style: IconButton.styleFrom(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.secondaryContainer),
+                child: Text(
+                  state.selectedDateRange == null
+                      ? 'Pilih Tanggal'
+                      : '${DateFormat('dd MMM yyyy').format(state.selectedDateRange!.start)} - ${DateFormat('dd MMM yyyy').format(state.selectedDateRange!.end)}',
                 ),
-              ],
-            )
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildFilterChip(SalesReportNotifier notifier, SalesReportState state, SalesReportFilterType filterType, String label) {
+    final bool isActive = state.activeFilter == filterType;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isActive,
+        onSelected: (selected) {
+          if (selected) {
+            notifier.setFilter(filterType);
+          }
+        },
+        selectedColor: Theme.of(context).primaryColor,
+        labelStyle: TextStyle(color: isActive ? Colors.white : Colors.black),
+        backgroundColor: Colors.grey[200],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+  // --- AKHIR UI FILTER BARU ---
 
   Widget _buildMetrics(SalesReportData data) {
     return Column(
@@ -335,9 +343,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal, // Aktifkan scroll horizontal
+        scrollDirection: Axis.horizontal, 
         child: ConstrainedBox(
-           constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width), // Pastikan tabel memenuhi lebar layar
+           constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width), 
           child: DataTable(
             showCheckboxColumn: false,
             columnSpacing: 24,
@@ -386,6 +394,28 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   void _showInvoiceDialog(BuildContext context, SalesReportOrder order) {
     final images = ref.watch(productImagesProvider);
 
+    String getPaymentStatusText(String status) {
+      switch (status.toLowerCase()) {
+        case 'paid':
+          return 'Lunas';
+        case 'unpaid':
+          return 'Belum Bayar';
+        default:
+          return status;
+      }
+    }
+
+    Color getPaymentStatusColor(String status) {
+      switch (status.toLowerCase()) {
+        case 'paid':
+          return Colors.green.shade700;
+        case 'unpaid':
+          return Colors.red.shade700;
+        default:
+          return Colors.grey.shade700;
+      }
+    }
+
     showDialog(
       context: context,
       builder: (context) {
@@ -418,6 +448,29 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                       Text(
                           'Tanggal: ${DateFormat('dd MMMM yyyy').format(order.orderDate.toDate())}'),
                       Text('Pelanggan: ${order.customerName}'),
+                      const SizedBox(height: 4),
+                      
+                      Row(
+                        children: [
+                           const Text('Status Pembayaran: '),
+                           const SizedBox(width: 8),
+                           Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: getPaymentStatusColor(order.paymentStatus).withAlpha(30),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                getPaymentStatusText(order.paymentStatus),
+                                style: TextStyle(
+                                  color: getPaymentStatusColor(order.paymentStatus),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      
                       const Divider(height: 24),
                       Text('Rincian Produk Terjual',
                           style: Theme.of(context)
@@ -425,11 +478,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                               .titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      // ### PERUBAHAN DI SINI ###
-                      // Membungkus SingleChildScrollView horizontal dengan SingleChildScrollView vertikal
                       Expanded(
-                        child: SingleChildScrollView( // <-- Scroll Vertikal
-                          child: SingleChildScrollView( // <-- Scroll Horizontal
+                        child: SingleChildScrollView( 
+                          child: SingleChildScrollView( 
                             scrollDirection: Axis.horizontal,
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
@@ -500,7 +551,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                           ),
                         ),
                       ),
-                      // ### AKHIR PERUBAHAN ###
                       const Divider(height: 24),
                       _buildDialogTotalRow(context, 'Total Penjualan',
                           formatter.formatCurrency(order.totalRevenue)),

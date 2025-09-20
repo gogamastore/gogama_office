@@ -20,7 +20,8 @@ class SalesReportOrder {
   final Timestamp orderDate;
   final String customerName;
   final String? customerId;
-  final String status; // Tambahkan status
+  final String status;
+  final String paymentStatus; // <<< TAMBAHKAN FIELD INI
   final List<SalesReportItem> items;
   final double totalRevenue;
   final double totalCogs;
@@ -30,7 +31,8 @@ class SalesReportOrder {
     required this.orderDate,
     required this.customerName,
     required this.customerId,
-    required this.status, // Tambahkan status
+    required this.status,
+    required this.paymentStatus, // <<< TAMBAHKAN DI KONSTRUKTOR
     required this.items,
     required this.totalRevenue,
     required this.totalCogs,

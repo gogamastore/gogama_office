@@ -5,18 +5,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/sales_report_data.dart';
 
+// Enum untuk tipe filter
+enum SalesReportFilterType {
+  today,
+  yesterday,
+  last7days,
+  thisMonth,
+  custom
+}
+
 @immutable
 class SalesReportState {
   final DateTimeRange? selectedDateRange;
   final SalesReportData? reportData;
   final bool isLoading;
   final String? errorMessage;
+  final SalesReportFilterType activeFilter;
 
   const SalesReportState({
     this.selectedDateRange,
     this.reportData,
     this.isLoading = false,
     this.errorMessage,
+    this.activeFilter = SalesReportFilterType.today, // Default ke hari ini
   });
 
   SalesReportState copyWith({
@@ -24,12 +35,14 @@ class SalesReportState {
     SalesReportData? reportData,
     bool? isLoading,
     String? errorMessage,
+    SalesReportFilterType? activeFilter,
   }) {
     return SalesReportState(
       selectedDateRange: selectedDateRange ?? this.selectedDateRange,
       reportData: reportData ?? this.reportData,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: errorMessage,
+      activeFilter: activeFilter ?? this.activeFilter,
     );
   }
 }
@@ -40,10 +53,36 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
   SalesReportNotifier() : super(const SalesReportState());
 
   void setDateRange(DateTimeRange dateRange) {
-    state = state.copyWith(selectedDateRange: dateRange);
+    state = state.copyWith(selectedDateRange: dateRange, activeFilter: SalesReportFilterType.custom);
   }
 
-  // Helper function to fetch details in chunks to avoid the 30-item 'in' query limit.
+  void setFilter(SalesReportFilterType filter) {
+    final now = DateTime.now();
+    DateTimeRange newRange;
+
+    switch (filter) {
+      case SalesReportFilterType.today:
+        newRange = DateTimeRange(start: DateTime(now.year, now.month, now.day), end: now);
+        break;
+      case SalesReportFilterType.yesterday:
+        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 1));
+        final end = DateTime(now.year, now.month, now.day).subtract(const Duration(microseconds: 1));
+        newRange = DateTimeRange(start: start, end: end);
+        break;
+      case SalesReportFilterType.last7days:
+        newRange = DateTimeRange(start: now.subtract(const Duration(days: 6)), end: now);
+        break;
+      case SalesReportFilterType.thisMonth:
+        newRange = DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
+        break;
+      case SalesReportFilterType.custom:
+        // Dikelola oleh setDateRange
+        return;
+    }
+    state = state.copyWith(selectedDateRange: newRange, activeFilter: filter, errorMessage: null);
+    generateReport();
+  }
+
   Future<Map<String, DocumentSnapshot>> _fetchDetailsInChunks(
       String collection, Set<String> ids) async {
     final details = <String, DocumentSnapshot>{};
@@ -69,8 +108,9 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
 
   Future<void> generateReport() async {
     if (state.selectedDateRange == null) {
-      state = state.copyWith(errorMessage: 'Pilih rentang tanggal terlebih dahulu.');
-      return;
+      // Atur filter default ke hari ini jika belum ada
+      setFilter(SalesReportFilterType.today);
+      return; // setFilter akan memanggil generateReport lagi
     }
 
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -98,13 +138,9 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
         return;
       }
 
-      // Get all product and customer IDs
       final productIds = relevantDocs.expand((doc) => (doc.data()['products'] as List<dynamic>).map<String>((item) => item['productId'] as String)).toSet();
-      
-      // THE FIX: Use .whereType<String>() to filter nulls and get the correct Set<String> type.
       final customerIds = relevantDocs.map((doc) => doc.data()['customerId'] as String?).whereType<String>().toSet();
 
-      // Fetch details in chunks
       final productDetails = await _fetchDetailsInChunks('products', productIds);
       final customerDetails = await _fetchDetailsInChunks('user', customerIds);
 
@@ -136,7 +172,18 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
               }
           }
           
-          salesOrders.add(SalesReportOrder(orderId: orderDoc.id, orderDate: orderData['date'] as Timestamp, customerName: customerName, customerId: customerId, status: orderData['status'] as String, items: items, totalRevenue: orderRevenue, totalCogs: orderCogs));
+          salesOrders.add(SalesReportOrder(
+            orderId: orderDoc.id, 
+            orderDate: orderData['date'] as Timestamp, 
+            customerName: customerName, 
+            customerId: customerId, 
+            status: orderData['status'] as String, 
+            paymentStatus: orderData['paymentStatus'] as String? ?? 'unpaid', 
+            items: items, 
+            totalRevenue: orderRevenue, 
+            totalCogs: orderCogs
+          ));
+          
           totalRevenue += orderRevenue;
           totalCogs += orderCogs;
 
