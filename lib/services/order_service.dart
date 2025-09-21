@@ -8,7 +8,6 @@ import '../models/order_item.dart';
 class OrderService {
   final _db = FirebaseFirestore.instance;
 
-  // --- METODE BARU DITAMBAHKAN DI SINI ---
   Future<void> markOrderAsPaid(String orderId) async {
     final orderRef = _db.collection('orders').doc(orderId);
     await orderRef.update({
@@ -16,22 +15,38 @@ class OrderService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
-  // --- AKHIR METODE BARU ---
 
+  // --- FUNGSI YANG DIPERBAIKI ---
   Future<List<OrderProduct>> _enrichProducts(
       List<OrderProduct> orderProducts) async {
     if (orderProducts.isEmpty) return [];
+
     final productIds = orderProducts.map((p) => p.productId).toSet().toList();
     if (productIds.isEmpty) return [];
 
-    final productSnapshots = await _db
-        .collection('products')
-        .where(FieldPath.documentId, whereIn: productIds)
-        .get();
-    final productMap = {
-      for (var doc in productSnapshots.docs) doc.id: Product.fromFirestore(doc)
-    };
+    final Map<String, Product> productMap = {};
+    const chunkSize = 30; // Batas maksimum untuk kueri 'in' di Firestore
 
+    // Pecah productIds menjadi beberapa bagian (chunk) yang lebih kecil
+    for (var i = 0; i < productIds.length; i += chunkSize) {
+      final chunk = productIds.sublist(
+          i, i + chunkSize > productIds.length ? productIds.length : i + chunkSize);
+      
+      if (chunk.isNotEmpty) {
+        // Jalankan kueri untuk setiap bagian (chunk)
+        final productSnapshots = await _db
+            .collection('products')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+        
+        // Tambahkan hasil dari chunk ini ke dalam map utama
+        for (var doc in productSnapshots.docs) {
+          productMap[doc.id] = Product.fromFirestore(doc);
+        }
+      }
+    }
+
+    // Proses pemetaan tetap sama
     return orderProducts.map((orderProduct) {
       final productDetails = productMap[orderProduct.productId];
       return orderProduct.copyWith(
@@ -41,6 +56,7 @@ class OrderService {
       );
     }).toList();
   }
+  // --- AKHIR PERBAIKAN ---
 
   Future<List<Order>> getAllOrders() async {
     final snapshot =
