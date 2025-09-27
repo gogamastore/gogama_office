@@ -165,7 +165,7 @@ class OrdersScreen extends ConsumerWidget {
   // --- PERUBAHAN UTAMA ADA DI FUNGSI INI ---
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final double totalValue = double.tryParse(order.total.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
+    final double totalValue = double.tryParse(order.total) ?? 0.0;
 
     return GestureDetector(
       onTap: () {
