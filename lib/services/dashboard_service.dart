@@ -1,6 +1,4 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
-
 import '../models/dashboard_data.dart';
 import '../models/order.dart';
 import '../models/sales_data.dart';
@@ -9,12 +7,10 @@ class DashboardService {
   final _db = firestore.FirebaseFirestore.instance;
 
   Future<DashboardData> getDashboardData() async {
-    // --- PERBAIKAN: Tentukan rentang waktu untuk "Hari Ini" ---
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
     final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-    // --- Query untuk Total Revenue & Sales HARI INI ---
     final todaysOrdersQuery = _db
         .collection('orders')
         .where('status', whereIn: ['Processing', 'Shipped', 'Delivered'])
@@ -38,7 +34,6 @@ class DashboardService {
     }
     final int totalSalesToday = todaysOrdersSnapshot.docs.length;
 
-    // --- Query untuk data lainnya (tetap dalam rentang 30 hari atau total) ---
     final oneMonthAgo = now.subtract(const Duration(days: 30));
     final newCustomersQuery = _db
         .collection('user')
@@ -67,26 +62,59 @@ class DashboardService {
         .map((doc) => Order.fromFirestore(doc as firestore.DocumentSnapshot))
         .toList();
 
-    // --- Kembalikan data dengan nilai HARI INI untuk revenue dan sales ---
     return DashboardData(
       totalRevenue: totalRevenueToday.round(),
       totalSales: totalSalesToday,
-      newCustomers: newCustomers, // Tetap 30 hari terakhir
-      totalProducts: totalProducts, // Tetap total
-      lowStockProducts: lowStockProducts, // Tetap total
-      recentOrders: recentOrders, // Tetap 5 terakhir
+      newCustomers: newCustomers,
+      totalProducts: totalProducts,
+      lowStockProducts: lowStockProducts,
+      recentOrders: recentOrders,
     );
   }
 
+  // --- FUNGSI INI DIUBAH UNTUK MENGAMBIL DATA 1 BULAN TERAKHIR ---
   Future<List<SalesData>> getSalesAnalytics() async {
-    // Data mock untuk analitik penjualan (tidak berubah)
-    return [
-      SalesData(label: 'Jul', value: 2500000),
-      SalesData(label: 'Agt', value: 12500000),
-      SalesData(label: 'Sep', value: 5000000),
-      SalesData(label: 'Okt', value: 7500000),
-      SalesData(label: 'Nov', value: 9000000),
-      SalesData(label: 'Des', value: 11000000),
-    ];
+    final now = DateTime.now();
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    Map<int, int> dailySales = {};
+
+    // 1. Inisialisasi 30 hari terakhir
+    for (int i = 0; i < 30; i++) {
+      final day = thirtyDaysAgo.add(Duration(days: i));
+      dailySales[day.day] = 0;
+    }
+
+    // 2. Query pesanan dalam 30 hari terakhir
+    final querySnapshot = await _db
+        .collection('orders')
+        .where('status', whereIn: ['delivered', 'shipped', 'processing'])
+        .where('date',
+            isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(thirtyDaysAgo))
+        .get();
+
+    // 3. Proses data penjualan harian
+    for (var doc in querySnapshot.docs) {
+      final data = doc.data();
+      final orderDate = (data['date'] as firestore.Timestamp).toDate();
+      final dayKey = orderDate.day;
+
+      final total = data['total'];
+      int orderTotal = 0;
+      if (total is num) {
+        orderTotal = total.toInt();
+      } else if (total is String) {
+        orderTotal = int.tryParse(total.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+      }
+
+      if (dailySales.containsKey(dayKey)) {
+        dailySales[dayKey] = dailySales[dayKey]! + orderTotal;
+      }
+    }
+
+    // 4. Ubah ke format List<SalesData>
+    return dailySales.entries
+        .map((entry) =>
+            SalesData(label: entry.key.toString(), value: entry.value))
+        .toList();
   }
 }

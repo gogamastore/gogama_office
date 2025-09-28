@@ -171,9 +171,9 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
       childAspectRatio: 2.2, // Memberikan lebih banyak ruang vertikal
       children: [
         _buildMetricCard(
-            'Total Pembelian', formatter.format(total), Ionicons.cash_outline),
-        _buildMetricCard('Jumlah Transaksi', count.toString(),
-            Ionicons.document_text_outline),
+            'Total Transaksi', formatter.format(total), Ionicons.cash_outline),
+        _buildMetricCard(
+            'Jumlah Nota', count.toString(), Ionicons.document_text_outline),
       ],
     );
   }

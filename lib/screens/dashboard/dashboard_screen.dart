@@ -1,4 +1,5 @@
 // lib/screens/dashboard/dashboard_screen.dart
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -18,9 +19,9 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _refreshData() async {
-    // CORRECTED: Call ref.refresh directly on the provider
-    ref.refresh(dashboardDataProvider);
-    ref.refresh(salesAnalyticsProvider);
+    // FIX: Await the refresh calls to handle the futures correctly.
+    await ref.refresh(dashboardDataProvider.future);
+    await ref.refresh(salesAnalyticsProvider.future);
   }
 
   @override
@@ -39,11 +40,8 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 _buildHeader(user?.email?.split('@')[0] ?? 'User', ref),
                 const SizedBox(height: 24),
-
-                // Stats Cards
                 dashboardDataAsync.when(
                   data: (data) => _buildStatsContainer(data),
                   loading: () =>
@@ -51,8 +49,6 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
                 const SizedBox(height: 24),
-
-                // Sales Overview Chart
                 salesDataAsync.when(
                   data: (salesData) => _buildSalesChart(salesData),
                   loading: () =>
@@ -60,8 +56,6 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
                 const SizedBox(height: 24),
-
-                // Recent Orders
                 dashboardDataAsync.when(
                   data: (data) => _buildRecentOrders(data.recentOrders),
                   loading: () =>
@@ -69,8 +63,6 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                   error: (err, stack) => Center(child: Text('Error: $err')),
                 ),
                 const SizedBox(height: 24),
-
-                // Success Message
                 _buildSuccessMessage(),
               ],
             ),
@@ -83,9 +75,8 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildHeader(String userName, WidgetRef ref) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start, // Align items to the top
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // FIX: Wrap the column in an Expanded widget to prevent horizontal overflow.
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,8 +93,7 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF2C3E50),
                 ),
-                overflow: TextOverflow
-                    .ellipsis, // Prevent long usernames from overflowing
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -214,9 +204,11 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildSalesChart(List<SalesData> salesData) {
-    final maxValue = salesData.isNotEmpty
-        ? salesData.map((d) => d.value).reduce((a, b) => a > b ? a : b)
-        : 0;
+    final spots = salesData.asMap().entries.map((entry) {
+      final index = entry.key;
+      final data = entry.value;
+      return FlSpot(index.toDouble(), data.value.toDouble());
+    }).toList();
 
     return Container(
       decoration: BoxDecoration(
@@ -242,67 +234,37 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
               color: Color(0xFF2C3E50),
             ),
           ),
-          const SizedBox(height: 4),
           const Text(
-            'Data Penjualan selama 6 Bulan Terakhir.',
+            'Data Penjualan 1 Bulan Terakhir.',
             style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
           ),
           const SizedBox(height: 20),
           SizedBox(
             height: 150,
-            // FIX: Wrap the Row in a SingleChildScrollView to make the chart scrollable horizontally.
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: salesData.map((item) {
-                  // FIX: Reduce the bar height multiplier to prevent vertical overflow.
-                  final height = maxValue > 0
-                      ? (item.value / maxValue) * 100
-                      : 10.0;
-                  return _buildChartColumn(item.label, height, item.value);
-                }).toList(),
+            child: LineChart(
+              LineChartData(
+                // FIX: Add const constructors
+                gridData: const FlGridData(show: false),
+                titlesData: const FlTitlesData(show: false),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: const Color(0xFF5DADE2),
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    // FIX: Add const constructor
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      // FIX: Replace deprecated withOpacity with a const color with alpha
+                      color: const Color(0x4D5DADE2),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChartColumn(String label, double height, int value) {
-    final formattedValue = NumberFormat.compact(locale: 'id_ID').format(value);
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8.0,
-      ), // Increased padding for better spacing
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          if (value > 0)
-            Text(
-              formattedValue,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF5DADE2),
-              ),
-            ),
-          const SizedBox(height: 4),
-          Container(
-            width: 30,
-            height: height,
-            decoration: BoxDecoration(
-              color: value > 0
-                  ? const Color(0xFF5DADE2)
-                  : const Color(0xFFE0E6ED),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
           ),
         ],
       ),
@@ -488,8 +450,6 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildSuccessMessage() {
     return Container(
-      // The margin was causing issues on smaller screens, let's remove horizontal margin from here
-      // and let the parent padding handle it.
       margin: const EdgeInsets.symmetric(vertical: 24),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -503,7 +463,6 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ],
       ),
-      // FIX: Restructure the Row to be more flexible.
       child: const Row(
         children: [
           Icon(Icons.check_circle, color: Color(0xFF27AE60)),
@@ -523,7 +482,7 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                 Text(
                   'Disinkronkan dari Firestore',
                   style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
-                  overflow: TextOverflow.ellipsis, // Add overflow handling
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
