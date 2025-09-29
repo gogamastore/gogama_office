@@ -13,7 +13,16 @@ class DashboardService {
 
     final todaysOrdersQuery = _db
         .collection('orders')
-        .where('status', whereIn: ['Processing', 'Shipped', 'Delivered'])
+        .where('status', whereIn: [
+          'pending',
+          'Pending',
+          'Processing',
+          'processing',
+          'shipped',
+          'Shipped',
+          'delivered',
+          'Delivered'
+        ])
         .where('date', isGreaterThanOrEqualTo: startOfToday)
         .where('date', isLessThanOrEqualTo: endOfToday);
     final todaysOrdersSnapshot = await todaysOrdersQuery.get();

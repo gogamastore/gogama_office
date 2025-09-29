@@ -83,7 +83,8 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
             children: [
               const Text(
                 'Grosir Gallery Makassar',
-                style: TextStyle(fontSize: 16, color: Color(0xFF7F8C8D)),
+                style: TextStyle(
+                    fontSize: 16, color: Color.fromARGB(255, 217, 9, 9)),
               ),
               const SizedBox(height: 4),
               Text(
