@@ -24,6 +24,8 @@ class Product {
   final String? description;
   final String? categoryId;
   final double? lastPurchasePrice; // Harga beli terakhir yang spesifik
+  final Timestamp? createdAt;
+  final Timestamp? updatedAt;
 
   Product({
     required this.id,
@@ -36,6 +38,8 @@ class Product {
     this.description,
     this.categoryId,
     this.lastPurchasePrice,
+    this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -50,6 +54,8 @@ class Product {
       'description': description,
       'categoryId': categoryId,
       'lastPurchasePrice': lastPurchasePrice,
+      'createdAt': createdAt ?? FieldValue.serverTimestamp(),
+      'updatedAt': updatedAt, // Biarkan null saat membuat, Firestore akan mengisinya
     };
   }
 
@@ -66,6 +72,8 @@ class Product {
       categoryId: map['categoryId'] as String?,
       // Fallback: Gunakan purchasePrice jika lastPurchasePrice tidak ada
       lastPurchasePrice: parsePrice(map['lastPurchasePrice'] ?? map['purchasePrice']),
+      createdAt: map['createdAt'] as Timestamp?,
+      updatedAt: map['updatedAt'] as Timestamp?,
     );
   }
 
@@ -83,6 +91,8 @@ class Product {
       categoryId: data['categoryId'] as String?,
       // Fallback: Gunakan purchasePrice jika lastPurchasePrice tidak ada
       lastPurchasePrice: parsePrice(data['lastPurchasePrice'] ?? data['purchasePrice']),
+      createdAt: data['createdAt'] as Timestamp?,
+      updatedAt: data['updatedAt'] as Timestamp?,
     );
   }
 
@@ -97,6 +107,8 @@ class Product {
     String? description,
     String? categoryId,
     double? lastPurchasePrice,
+    Timestamp? createdAt,
+    Timestamp? updatedAt,
   }) {
     return Product(
       id: id ?? this.id,
@@ -109,6 +121,8 @@ class Product {
       description: description ?? this.description,
       categoryId: categoryId ?? this.categoryId,
       lastPurchasePrice: lastPurchasePrice ?? this.lastPurchasePrice,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

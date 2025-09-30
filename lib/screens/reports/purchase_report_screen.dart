@@ -7,6 +7,7 @@ import '../purchases/edit_purchase_screen.dart';
 
 import '../../models/purchase_transaction.dart';
 import '../../providers/purchase_report_provider.dart';
+import '../../providers/product_images_provider.dart';
 
 class PurchaseReportScreen extends ConsumerStatefulWidget {
   const PurchaseReportScreen({super.key});
@@ -23,7 +24,9 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _selectedDateRange = DateTimeRange(start: now, end: now);
+    // Default filter to the last 30 days
+    _selectedDateRange = DateTimeRange(
+        start: now.subtract(const Duration(days: 30)), end: now);
   }
 
   Future<void> _selectDateRange() async {
@@ -442,83 +445,83 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                               error: (e, s) => const Center(
                                   child: Text('Gagal memuat gambar')),
                               data: (images) {
-                                // DIPERBARUI: Bungkus DataTable dengan SingleChildScrollView horizontal
                                 return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                    columnSpacing: 10,
-                                    horizontalMargin: 10,
-                                    columns: const [
-                                      DataColumn(label: Text('Produk')),
-                                      DataColumn(
-                                          label: Text('Jml'), numeric: true),
-                                      DataColumn(
-                                          label: Text('Harga'), numeric: true),
-                                      DataColumn(
-                                          label: Text('Subtotal'),
-                                          numeric: true),
-                                    ],
-                                    rows: transaction.items.map((item) {
-                                      final imageUrl = images[item.productId];
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            SizedBox(
-                                              width: 180,
-                                              child: Row(
-                                                children: [
-                                                  if (imageUrl != null &&
-                                                      imageUrl.isNotEmpty)
-                                                    Image.network(imageUrl,
-                                                        width: 37,
-                                                        height: 37,
-                                                        fit: BoxFit.cover,
-                                                        errorBuilder: (c, e,
-                                                                s) =>
-                                                            const Icon(
-                                                                Ionicons
-                                                                    .image_outline,
-                                                                size: 37))
-                                                  else
-                                                    Container(
-                                                        width: 37,
-                                                        height: 37,
-                                                        color: Colors
-                                                            .grey.shade200,
-                                                        child: const Icon(
-                                                            Ionicons
-                                                                .image_outline)),
-                                                  const SizedBox(width: 8),
-                                                  Flexible(
-                                                      child: Text(
-                                                          item.productName,
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontSize: 10),
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow
-                                                              .ellipsis)),
-                                                ],
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: DataTable(
+                                      columnSpacing: 10,
+                                      horizontalMargin: 10,
+                                      columns: const [
+                                        DataColumn(label: Text('Produk')),
+                                        DataColumn(
+                                            label: Text('Jml'), numeric: true),
+                                        DataColumn(
+                                            label: Text('Harga'), numeric: true),
+                                        DataColumn(
+                                            label: Text('Subtotal'),
+                                            numeric: true),
+                                      ],
+                                      rows: transaction.items.map((item) {
+                                        final imageUrl = images[item.productId];
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              SizedBox(
+                                                width: 180,
+                                                child: Row(
+                                                  children: [
+                                                    if (imageUrl != null &&
+                                                        imageUrl.isNotEmpty)
+                                                      Image.network(imageUrl,
+                                                          width: 37,
+                                                          height: 37,
+                                                          fit: BoxFit.cover,
+                                                          errorBuilder: (c, e,
+                                                                  s) =>
+                                                              const Icon(
+                                                                  Ionicons
+                                                                      .image_outline,
+                                                                  size: 37))
+                                                    else
+                                                      Container(
+                                                          width: 37,
+                                                          height: 37,
+                                                          color: Colors
+                                                              .grey.shade200,
+                                                          child: const Icon(Ionicons
+                                                              .image_outline)),
+                                                    const SizedBox(width: 8),
+                                                    Flexible(
+                                                        child: Text(
+                                                            item.productName,
+                                                            style:
+                                                                const TextStyle(
+                                                                    fontSize: 10),
+                                                            maxLines: 2,
+                                                            overflow: TextOverflow
+                                                                .ellipsis)),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          DataCell(Text(
-                                              item.quantity.toString(),
-                                              style: const TextStyle(
-                                                  fontSize: 10))),
-                                          DataCell(Text(
-                                              formatter
-                                                  .format(item.purchasePrice),
-                                              style: const TextStyle(
-                                                  fontSize: 10))),
-                                          DataCell(Text(
-                                              formatter.format(item.quantity *
-                                                  item.purchasePrice),
-                                              style: const TextStyle(
-                                                  fontSize: 10))),
-                                        ],
-                                      );
-                                    }).toList(),
+                                            DataCell(Text(
+                                                item.quantity.toString(),
+                                                style: const TextStyle(
+                                                    fontSize: 10))),
+                                            DataCell(Text(
+                                                formatter
+                                                    .format(item.purchasePrice),
+                                                style: const TextStyle(
+                                                    fontSize: 10))),
+                                            DataCell(Text(
+                                                formatter.format(item.quantity *
+                                                    item.purchasePrice),
+                                                style: const TextStyle(
+                                                    fontSize: 10))),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
                                   ),
                                 );
                               },

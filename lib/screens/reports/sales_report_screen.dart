@@ -21,7 +21,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Panggil setFilter untuk mengatur default ke hari ini dan memuat data
       ref.read(salesReportProvider.notifier).setFilter(SalesReportFilterType.today);
     });
   }
@@ -81,7 +80,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  // --- UI FILTER BARU --- 
   Widget _buildFilterCard(
       SalesReportNotifier notifier, SalesReportState state) {
     return Card(
@@ -147,7 +145,6 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       ),
     );
   }
-  // --- AKHIR UI FILTER BARU ---
 
   Widget _buildMetrics(SalesReportData data) {
     return Column(
@@ -343,9 +340,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal, 
+        scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-           constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width), 
+          constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
           child: DataTable(
             showCheckboxColumn: false,
             columnSpacing: 24,
@@ -378,7 +375,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
- String _translateStatus(String status) {
+  String _translateStatus(String status) {
     switch (status) {
       case 'Processing':
         return 'Perlu Dikirim';
@@ -449,7 +446,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                           'Tanggal: ${DateFormat('dd MMMM yyyy').format(order.orderDate.toDate())}'),
                       Text('Pelanggan: ${order.customerName}'),
                       const SizedBox(height: 4),
-                      
+
                       Row(
                         children: [
                            const Text('Status Pembayaran: '),
@@ -470,7 +467,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                             ),
                         ],
                       ),
-                      
+
                       const Divider(height: 24),
                       Text('Rincian Produk Terjual',
                           style: Theme.of(context)
@@ -479,76 +476,58 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                               ?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Expanded(
-                        child: SingleChildScrollView( 
-                          child: SingleChildScrollView( 
-                            scrollDirection: Axis.horizontal,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                  minWidth: MediaQuery.of(context).size.width * 0.75), 
-                              child: images.when(
-                                loading: () =>
-                                    const Center(child: CircularProgressIndicator()),
-                                error: (err, stack) =>
-                                    const Center(child: Text('Gagal memuat gambar')),
-                                data: (imageMap) {
-                                  return DataTable(
-                                    columnSpacing: 18,
-                                    columns: const [
-                                      DataColumn(label: Text('Produk')),
-                                      DataColumn(label: Text('Jml'), numeric: true),
-                                      DataColumn(label: Text('Harga'), numeric: true),
-                                      DataColumn(
-                                          label: Text('Subtotal'), numeric: true),
-                                    ],
-                                    rows: order.items.map((item) {
-                                      final imageUrl = imageMap[item.productId];
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            Row(
+                        child: images.when(
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (err, stack) => const Center(child: Text('Gagal memuat gambar')),
+                          data: (imageMap) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SingleChildScrollView(
+                                child: DataTable(
+                                  columnSpacing: 10,
+                                  horizontalMargin: 10,
+                                  columns: const [
+                                    DataColumn(label: Text('Produk')),
+                                    DataColumn(label: Text('Jml'), numeric: true),
+                                    DataColumn(label: Text('Harga'), numeric: true),
+                                    DataColumn(label: Text('Subtotal'), numeric: true),
+                                  ],
+                                  rows: order.items.map((item) {
+                                    final imageUrl = imageMap[item.productId];
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(
+                                          SizedBox(
+                                            width: 180,
+                                            child: Row(
                                               children: [
-                                                if (imageUrl != null)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                            right: 8.0),
-                                                    child: Image.network(
-                                                      imageUrl,
-                                                      width: 40,
-                                                      height: 40,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (context,
-                                                              error,
-                                                              stackTrace) =>
-                                                          const Icon(
-                                                              Icons.broken_image,
-                                                              size: 40,
-                                                              color: Colors.grey),
-                                                    ),
-                                                  ),
-                                                Expanded(
+                                                if (imageUrl != null && imageUrl.isNotEmpty)
+                                                  Image.network(imageUrl, width: 37, height: 37, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Ionicons.image_outline, size: 37))
+                                                else
+                                                  Container(width: 37, height: 37, color: Colors.grey.shade200, child: const Icon(Ionicons.image_outline)),
+                                                const SizedBox(width: 8),
+                                                Flexible(
                                                   child: Text(
-                                                      item.productName,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      maxLines: 2),
+                                                    item.productName,
+                                                    style: const TextStyle(fontSize: 10),
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis
+                                                  )
                                                 ),
                                               ],
                                             ),
                                           ),
-                                          DataCell(Text(item.quantity.toString())),
-                                          DataCell(Text(formatter
-                                              .formatCurrency(item.salePrice))),
-                                          DataCell(Text(formatter
-                                              .formatCurrency(item.totalSale))),
-                                        ],
-                                      );
-                                    }).toList(),
-                                  );
-                                },
+                                        ),
+                                        DataCell(Text(item.quantity.toString(), style: const TextStyle(fontSize: 10))),
+                                        DataCell(Text(formatter.formatCurrency(item.salePrice), style: const TextStyle(fontSize: 10))),
+                                        DataCell(Text(formatter.formatCurrency(item.totalSale), style: const TextStyle(fontSize: 10))),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ),
                       const Divider(height: 24),

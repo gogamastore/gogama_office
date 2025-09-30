@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../models/product.dart';
 import '../../models/product_category.dart';
@@ -20,11 +22,14 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
   late TextEditingController _nameController;
   late TextEditingController _skuController;
   late TextEditingController _priceController;
-  late TextEditingController _purchasePriceController; // Controller untuk Harga Beli
-  late TextEditingController _stockController; // Controller untuk Stok
+  late TextEditingController _purchasePriceController;
+  late TextEditingController _stockController;
   late TextEditingController _descriptionController;
 
   String? _selectedCategoryId;
+  Uint8List? _imageBytes;
+  String? _imageName;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -48,10 +53,53 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 1024);
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      setState(() {
+        _imageBytes = bytes;
+        _imageName = pickedFile.name;
+      });
+    }
+  }
+
+  Future<String?> _uploadImage(Uint8List imageBytes, String imageName) async {
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$imageName';
+      final ref = FirebaseStorage.instance.ref().child('product_images').child(fileName);
+      final uploadTask = ref.putData(imageBytes, SettableMetadata(contentType: 'image/jpeg'));
+      final snapshot = await uploadTask.whenComplete(() => {});
+      return await snapshot.ref.getDownloadURL();
+    } catch (e) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengunggah gambar: $e')),
+      );
+      return null;
+    }
+  }
+
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isSaving = true;
+      });
+
       final navigator = Navigator.of(context);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+      String? imageUrl;
+      if (_imageBytes != null && _imageName != null) {
+        imageUrl = await _uploadImage(_imageBytes!, _imageName!);
+        if (imageUrl == null) {
+          setState(() {
+            _isSaving = false;
+          });
+          return; 
+        }
+      }
 
       final name = _nameController.text;
       final sku = _skuController.text;
@@ -61,7 +109,7 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
       final description = _descriptionController.text;
 
       final newProduct = Product(
-        id: '', // ID akan digenerate oleh Firestore
+        id: '', 
         name: name,
         sku: sku,
         price: price,
@@ -69,30 +117,36 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
         stock: stock,
         description: description,
         categoryId: _selectedCategoryId,
-        image: null, 
+        image: imageUrl,
       );
 
       try {
         await ref.read(productServiceProvider).addProduct(newProduct);
-
+        if (!mounted) return;
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Produk "$name" berhasil ditambahkan!')),
+          SnackBar(content: Text('Produk "$name" berhasil ditambahkan!'), backgroundColor: Colors.green),
         );
-        navigator.pop(); // Kembali setelah berhasil
+        navigator.pop();
       } catch (e) {
+        if (!mounted) return;
         scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Gagal menambah produk: $e')),
         );
+      } finally {
+         if (mounted) {
+          setState(() {
+            _isSaving = false;
+          });
+        }
       }
     }
   }
 
-  void _showAddCategoryDialog() {
+   void _showAddCategoryDialog() {
     final categoryNameController = TextEditingController();
     showDialog(
       context: context,
       builder: (context) {
-        // Simpan Navigator dan ScaffoldMessenger sebelum dialog
         final navigator = Navigator.of(context);
         final scaffoldMessenger = ScaffoldMessenger.of(context);
 
@@ -112,11 +166,13 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
                 if (name.isNotEmpty) {
                   try {
                     await ref.read(addCategoryProvider(name).future);
-                    navigator.pop(); // Tutup dialog
+                    if (!mounted) return;
+                    navigator.pop();
                     scaffoldMessenger.showSnackBar(
                       SnackBar(content: Text('Kategori "$name" berhasil ditambahkan.')),
                     );
                   } catch (e) {
+                     if (!mounted) return;
                      scaffoldMessenger.showSnackBar(
                       SnackBar(content: Text('Gagal menambah kategori: $e')),
                     );
@@ -137,8 +193,8 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
         title: const Text('Tambah Produk Baru'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save), 
-            onPressed: _saveProduct, 
+            icon: _isSaving ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.save),
+            onPressed: _isSaving ? null : _saveProduct,
             tooltip: 'Simpan',
           ),
         ],
@@ -169,14 +225,34 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   Widget _buildImageEditor() {
-    // Placeholder untuk produk baru
     return Center(
       child: Stack(
         children: [
-          const CircleAvatar(
-            radius: 60,
-            backgroundColor: Color(0xFFE0E6ED),
-            child: Icon(Icons.camera_alt, size: 50, color: Color(0xFFBDC3C7)),
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE0E6ED),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(26), // Menggunakan withAlpha untuk menghindari deprecation warning
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                )
+              ]
+            ),
+            child: ClipOval(
+              child: _imageBytes != null
+                  ? Image.memory(
+                      _imageBytes!,
+                      fit: BoxFit.cover,
+                      width: 120,
+                      height: 120,
+                    )
+                  : const Icon(Icons.camera_alt, size: 50, color: Color(0xFFBDC3C7)),
+            ),
           ),
           Positioned(
             bottom: 0,
@@ -186,7 +262,36 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
               backgroundColor: Theme.of(context).primaryColor,
               child: IconButton(
                 icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-                onPressed: () { /* TODO: Implement image picking */ },
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            ListTile(
+                              leading: const Icon(Icons.photo_library),
+                              title: const Text('Pilih dari Galeri'),
+                              onTap: () {
+                                _pickImage(ImageSource.gallery);
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.camera_alt),
+                              title: const Text('Ambil Foto'),
+                              onTap: () {
+                                _pickImage(ImageSource.camera);
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
             ),
           ),
@@ -254,7 +359,6 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Harga Jual
         TextFormField(
           controller: _priceController,
           decoration: const InputDecoration(
@@ -270,14 +374,13 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
             }
             final price = double.tryParse(value) ?? 0.0;
             final purchasePrice = double.tryParse(_purchasePriceController.text) ?? 0.0;
-            if (price < purchasePrice) {
+            if (purchasePrice > 0 && price < purchasePrice) {
               return 'Harga Jual tidak boleh lebih rendah dari Harga Beli (${currencyFormatter.format(purchasePrice)})';
             }
             return null;
           },
         ),
         const SizedBox(height: 16),
-        // Harga Beli
         TextFormField(
           controller: _purchasePriceController,
           decoration: const InputDecoration(
@@ -295,7 +398,6 @@ class AddProductScreenState extends ConsumerState<AddProductScreen> {
           },
         ),
         const SizedBox(height: 16),
-        // Stok Awal
         TextFormField(
           controller: _stockController,
           decoration: const InputDecoration(

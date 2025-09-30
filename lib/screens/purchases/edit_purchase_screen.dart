@@ -6,6 +6,7 @@ import 'package:myapp/services/purchase_service.dart';
 import '../../models/purchase_transaction.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/purchase_report_provider.dart';
+import '../../providers/product_images_provider.dart';
 
 final purchaseServiceProvider = Provider<PurchaseService>((ref) => PurchaseService());
 

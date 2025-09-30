@@ -8,7 +8,6 @@ class ProductService {
   final CollectionReference _purchaseHistoryCollection =
       FirebaseFirestore.instance.collection('purchase_history');
 
-  // Mendapatkan semua produk secara real-time, diurutkan berdasarkan nama
   Stream<List<Product>> getProducts() {
     return _productsCollection.orderBy('name').snapshots().map((snapshot) {
       final products = <Product>[];
@@ -17,14 +16,12 @@ class ProductService {
           products.add(Product.fromFirestore(doc));
         } catch (e) {
           print('Gagal mem-parsing produk dengan ID: ${doc.id}, error: $e');
-          // Lewati produk yang error dan lanjutkan
         }
       }
       return products;
     });
   }
 
-  // Mendapatkan satu produk berdasarkan ID secara real-time
   Stream<Product?> getProductById(String productId) {
     return _productsCollection.doc(productId).snapshots().map((snapshot) {
       try {
@@ -38,7 +35,6 @@ class ProductService {
     });
   }
 
-  // Mengambil riwayat pembelian untuk produk tertentu
   Stream<List<PurchaseHistoryEntry>> getPurchaseHistory(String productId) {
     return _purchaseHistoryCollection
         .where('productId', isEqualTo: productId)
@@ -51,17 +47,32 @@ class ProductService {
     });
   }
 
-  // Menambah produk baru
   Future<DocumentReference> addProduct(Product product) {
-    return _productsCollection.add(product.toMap());
+    final productData = product.toMap();
+    // Hapus ID sisi klien & timestamp, biarkan Firestore yang mengatur
+    productData.remove('id');
+    productData.remove('createdAt');
+    productData.remove('updatedAt');
+
+    // Tambahkan timestamp sisi server untuk pembuatan dan pembaruan
+    productData['createdAt'] = FieldValue.serverTimestamp();
+    productData['updatedAt'] = FieldValue.serverTimestamp();
+
+    return _productsCollection.add(productData);
   }
 
-  // Memperbarui produk
   Future<void> updateProduct(Product product) {
-    return _productsCollection.doc(product.id).update(product.toMap());
+    final productData = product.toMap();
+    // Hapus ID & createdAt agar tidak menimpa tanggal pembuatan
+    productData.remove('id');
+    productData.remove('createdAt');
+
+    // Tambahkan timestamp sisi server hanya untuk pembaruan
+    productData['updatedAt'] = FieldValue.serverTimestamp();
+
+    return _productsCollection.doc(product.id).update(productData);
   }
 
-  // Menghapus produk
   Future<void> deleteProduct(String productId) {
     return _productsCollection.doc(productId).delete();
   }

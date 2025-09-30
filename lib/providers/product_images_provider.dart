@@ -12,9 +12,9 @@ final productImagesProvider = FutureProvider<Map<String, String>>((ref) async {
   final Map<String, String> imageMap = {};
   for (var doc in productsSnapshot.docs) {
     final data = doc.data();
-    // Check if the document has an 'imageUrl' field and it's not empty.
-    if (data.containsKey('imageUrl') && (data['imageUrl' as Object] as String).isNotEmpty) {
-      imageMap[doc.id] = data['imageUrl' as Object] as String;
+    // Check if the document has an 'image' field and it's not empty.
+    if (data.containsKey('image') && (data['image' as Object] as String).isNotEmpty) {
+      imageMap[doc.id] = data['image' as Object] as String;
     }
   }
   
