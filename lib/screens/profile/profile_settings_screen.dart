@@ -1,26 +1,28 @@
-import 'dart:io';
+import 'dart:typed_data'; // DIIMPOR: Untuk Uint8List
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/user_service.dart';
+import '../../providers/user_provider.dart';
 
 class ProfileSettingsScreen extends ConsumerStatefulWidget {
   const ProfileSettingsScreen({super.key});
 
   @override
-  ConsumerState<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
+  ConsumerState<ProfileSettingsScreen> createState() =>
+      _ProfileSettingsScreenState();
 }
 
 class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _whatsappController = TextEditingController();
-  
-  File? _profileImage;
-  String _initialPhotoURL = ''; // DIUBAH: Inisialisasi sebagai string kosong
+
+  // DIGANTI: Menggunakan Uint8List untuk kompatibilitas web
+  Uint8List? _profileImageData;
+  String _initialPhotoURL = '';
   bool _isLoading = false;
   bool _isInitialized = false;
 
@@ -31,66 +33,73 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
     super.dispose();
   }
 
-  // Disederhanakan: Menghapus pemeriksaan null yang tidak perlu
   void _initializeData(UserModel? user) {
     if (user != null && !_isInitialized) {
-      _nameController.text = user.name; // DIHAPUS: ?? ''
-      _whatsappController.text = user.whatsapp; // DIHAPUS: ?? ''
-      _initialPhotoURL = user.photoURL;
+      _nameController.text = user.name;
+      _whatsappController.text = user.whatsapp ?? '';
+      _initialPhotoURL = user.photoURL ?? '';
       _isInitialized = true;
     }
   }
 
+  // DIPERBAIKI: Mengambil gambar sebagai bytes (Uint8List)
   Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final pickedFile = await ImagePicker()
+        .pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (pickedFile != null) {
+      final imageData = await pickedFile.readAsBytes();
       setState(() {
-        _profileImage = File(pickedFile.path);
+        _profileImageData = imageData;
       });
     }
   }
 
+  // DIPERBAIKI: Mengirim Uint8List ke service
   Future<void> _handleSaveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final user = ref.read(authServiceProvider).currentUser;
+      final user = ref.read(userDataProvider).value;
       if (user == null) throw Exception('User tidak ditemukan');
 
-      String newPhotoURL = _initialPhotoURL;
+      final updates = <String, dynamic>{};
 
-      // 1. Upload gambar baru jika dipilih
-      if (_profileImage != null) {
-        newPhotoURL = await ref.read(userServiceProvider).uploadProfilePicture(user.uid, _profileImage!);
+      if (_profileImageData != null) {
+        final newPhotoURL = await ref
+            .read(userServiceProvider)
+            .uploadProfilePicture(user.uid, _profileImageData!);
+        updates['photoURL'] = newPhotoURL;
       }
 
-      // 2. Buat model pengguna yang diperbarui
-      final updatedUser = UserModel(
-        uid: user.uid,
-        email: user.email,
-        name: _nameController.text,
-        whatsapp: _whatsappController.text,
-        photoURL: newPhotoURL, // DIPERBAIKI: newPhotoURL sudah pasti String
-      );
+      if (_nameController.text != user.name) {
+        updates['name'] = _nameController.text;
+      }
+      if (_whatsappController.text != (user.whatsapp ?? '')) {
+        updates['whatsapp'] = _whatsappController.text;
+      }
 
-      // 3. Simpan ke Firestore
-      await ref.read(userServiceProvider).updateUser(updatedUser);
+      if (updates.isNotEmpty) {
+        await ref.read(userServiceProvider).updateUser(user.uid, updates);
+      }
 
-      // Invalidate provider untuk mengambil ulang data
-      ref.invalidate(currentUserProvider);
+      ref.invalidate(userDataProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil berhasil diperbarui'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Profil berhasil diperbarui'),
+              backgroundColor: Colors.green),
         );
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menyimpan profil: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Gagal menyimpan profil: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -102,7 +111,7 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserData = ref.watch(currentUserProvider);
+    final currentUserData = ref.watch(userDataProvider);
     final authUser = ref.watch(authServiceProvider).currentUser;
 
     return Scaffold(
@@ -111,7 +120,8 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Pengaturan Profil', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Pengaturan Profil',
+            style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: currentUserData.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -119,14 +129,16 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
         data: (userModel) {
           _initializeData(userModel);
 
+          // DIPERBAIKI: Logika untuk menampilkan gambar dari Uint8List atau URL
           ImageProvider<Object> displayImage;
-          if (_profileImage != null) {
-            displayImage = FileImage(_profileImage!);
-          } else if (_initialPhotoURL.isNotEmpty) { // DISEDERHANAKAN: Cukup periksa isNotEmpty
-            displayImage = NetworkImage(_initialPhotoURL);
+          if (_profileImageData != null) {
+            displayImage =
+                MemoryImage(_profileImageData!); // Menampilkan dari memori
+          } else if (_initialPhotoURL.isNotEmpty) {
+            displayImage =
+                NetworkImage(_initialPhotoURL); // Menampilkan dari internet
           } else {
-            // Menggunakan placeholder yang lebih netral jika tidak ada gambar
-            displayImage = const AssetImage('assets/images/placeholder.png'); 
+            displayImage = const AssetImage('assets/images/placeholder.png');
           }
 
           return SingleChildScrollView(
@@ -135,39 +147,74 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
               key: _formKey,
               child: Card(
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Informasi Akun', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                      const Text('Informasi Akun',
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      Text('Perbarui informasi kontak dan nama Anda di sini.', style: Theme.of(context).textTheme.bodySmall),
+                      Text('Perbarui informasi kontak dan nama Anda di sini.',
+                          style: Theme.of(context).textTheme.bodySmall),
                       const SizedBox(height: 24),
-
                       _buildSectionTitle('Foto Profil'),
                       const SizedBox(height: 8),
                       Row(children: [
-                        CircleAvatar(radius: 50, backgroundImage: displayImage, backgroundColor: Colors.grey.shade200),
+                        CircleAvatar(
+                            radius: 50,
+                            backgroundImage: displayImage,
+                            backgroundColor: Colors.grey.shade200),
                         const SizedBox(width: 16),
-                        Expanded(child: ElevatedButton.icon(icon: const Icon(Icons.upload_file), label: const Text('Pilih Gambar'), onPressed: _pickImage, style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black87, elevation: 0)))
+                        Expanded(
+                            child: ElevatedButton.icon(
+                                icon: const Icon(Icons.upload_file),
+                                label: const Text('Pilih Gambar'),
+                                onPressed: _pickImage,
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey.shade200,
+                                    foregroundColor: Colors.black87,
+                                    elevation: 0)))
                       ]),
                       const SizedBox(height: 24),
-
-                      _buildTextField(label: 'Nama Lengkap', controller: _nameController, validator: (val) => (val ?? '').isEmpty ? 'Nama tidak boleh kosong' : null),
+                      _buildTextField(
+                          label: 'Nama Lengkap',
+                          controller: _nameController,
+                          validator: (val) => (val ?? '').isEmpty
+                              ? 'Nama tidak boleh kosong'
+                              : null),
                       const SizedBox(height: 16),
-                      _buildTextField(label: 'Nomor WhatsApp', controller: _whatsappController, keyboardType: TextInputType.phone, placeholder: 'Contoh: 628123456789', validator: (val) => (val ?? '').isEmpty ? 'Nomor WhatsApp tidak boleh kosong' : null),
+                      _buildTextField(
+                          label: 'Nomor WhatsApp',
+                          controller: _whatsappController,
+                          keyboardType: TextInputType.phone,
+                          placeholder: 'Contoh: 628123456789',
+                          validator: (val) => (val ?? '').isEmpty
+                              ? 'Nomor WhatsApp tidak boleh kosong'
+                              : null),
                       const SizedBox(height: 16),
-                      _buildTextField(label: 'Email', initialValue: authUser?.email ?? '', enabled: false),
+                      _buildTextField(
+                          label: 'Email',
+                          initialValue: authUser?.email ?? '',
+                          enabled: false),
                       const SizedBox(height: 32),
-
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleSaveChanges,
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                          child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Simpan Perubahan Profil', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8))),
+                          child: _isLoading
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white)
+                              : const Text('Simpan Perubahan Profil',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
@@ -182,10 +229,18 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16));
+    return Text(title,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16));
   }
 
-  Widget _buildTextField({required String label, TextEditingController? controller, String? initialValue, bool enabled = true, TextInputType? keyboardType, String? placeholder, String? Function(String?)? validator}) {
+  Widget _buildTextField(
+      {required String label,
+      TextEditingController? controller,
+      String? initialValue,
+      bool enabled = true,
+      TextInputType? keyboardType,
+      String? placeholder,
+      String? Function(String?)? validator}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,7 +256,8 @@ class _ProfileSettingsScreenState extends ConsumerState<ProfileSettingsScreen> {
             filled: !enabled,
             fillColor: Colors.grey[200],
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
           validator: validator,
         ),

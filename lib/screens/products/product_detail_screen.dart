@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/product.dart';
+import '../../models/promotion_model.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/promo_provider.dart';
 import 'edit_product_screen.dart';
 import 'purchase_history_dialog.dart';
 
@@ -41,7 +43,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  // --- PERBAIKAN DI FUNGSI INI ---
   Future<void> _deleteProduct() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -69,7 +70,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             .read(productServiceProvider)
             .deleteProduct(_currentProduct.id);
 
-        // --- SOLUSI: Cek apakah widget masih ada sebelum menggunakan context ---
         if (mounted) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -79,7 +79,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           );
         }
       } catch (e) {
-        // --- SOLUSI: Cek juga di blok catch ---
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -96,41 +95,32 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       symbol: 'Rp ',
       decimalDigits: 0,
     );
+    
+    // --- TAMBAHAN LOGIKA: Pantau data produk dan promo ---
+    final promosAsync = ref.watch(promoProvider);
 
-    // Listener untuk update produk secara real-time
-    ref
-        .watch(allProductsProvider)
-        .when(
-          data: (products) {
-            try {
-              final updatedProduct = products.firstWhere(
-                (p) => p.id == widget.product.id,
-              );
-              if (_currentProduct != updatedProduct) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    // Pengecekan mounted sudah ada di sini, bagus!
-                    setState(() {
-                      _currentProduct = updatedProduct;
-                    });
-                  }
-                });
-              }
-            } catch (e) {
-              // Jika produk tidak ditemukan lagi (mungkin sudah terhapus)
-              // Kita bisa navigasi kembali atau menampilkan pesan
-              if (mounted) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (Navigator.of(context).canPop()) {
-                    Navigator.of(context).pop();
-                  }
-                });
-              }
+    ref.listen(allProductsProvider, (_, state) {
+      state.whenData((products) {
+        try {
+          final updatedProduct = products.firstWhere((p) => p.id == widget.product.id);
+          if (_currentProduct != updatedProduct) {
+            if (mounted) {
+              setState(() {
+                _currentProduct = updatedProduct;
+              });
             }
-          },
-          loading: () {},
-          error: (err, stack) {},
-        );
+          }
+        } catch (e) {
+          if (mounted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            });
+          }
+        }
+      });
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -160,7 +150,8 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           children: [
             _buildImageSection(),
             const SizedBox(height: 24),
-            _buildInfoSection(currencyFormatter),
+            // --- PERUBAHAN LOGIKA: Kirim data promo ke info section ---
+            _buildInfoSection(currencyFormatter, promosAsync),
             const Divider(height: 40, thickness: 1),
             _buildDescriptionSection(),
           ],
@@ -194,7 +185,7 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   Widget _buildImagePlaceholder() {
     return Container(
-      height: 270,
+      height: 250,
       width: double.infinity,
       color: const Color(0xFFE0E6ED),
       child: const Center(
@@ -207,7 +198,64 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  Widget _buildInfoSection(NumberFormat currencyFormatter) {
+  // --- PERUBAHAN LOGIKA UTAMA ADA DI SINI ---
+  Widget _buildInfoSection(NumberFormat currencyFormatter, AsyncValue<List<Promotion>> promosAsync) {
+    // Cari promo yang aktif untuk produk ini
+    final activePromo = promosAsync.whenData((promos) {
+      try {
+        return promos.firstWhere((p) => 
+            p.product.id == _currentProduct.id && 
+            DateTime.now().isBefore(p.endDate));
+      } catch (e) {
+        return null; // Tidak ada promo yang cocok
+      }
+    });
+
+    Widget priceDisplayWidget;
+    // Jika ada promo aktif, tampilkan harga diskon
+    if (activePromo.asData?.value != null) {
+      final promo = activePromo.asData!.value!;
+      priceDisplayWidget = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Harga Promo', // Judul diubah menjadi Harga Promo
+              style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                 Text(
+                  currencyFormatter.format(promo.discountPrice),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2980B9),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  currencyFormatter.format(_currentProduct.price),
+                  style: const TextStyle(
+                    fontSize: 16, 
+                    decoration: TextDecoration.lineThrough,
+                    color: Color(0xFF95A5A6),
+                  ),
+                ),
+              ],
+            )
+          ],
+        );
+    } else {
+      // Jika tidak ada promo, tampilkan harga normal seperti biasa
+      priceDisplayWidget = _buildInfoTile(
+        title: 'Harga Jual',
+        value: currencyFormatter.format(_currentProduct.price),
+        valueColor: const Color(0xFF2980B9),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,12 +278,9 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start, // Agar alignment rapi
           children: [
-            _buildInfoTile(
-              title: 'Harga Jual',
-              value: currencyFormatter.format(_currentProduct.price),
-              valueColor: const Color(0xFF2980B9),
-            ),
+            priceDisplayWidget, // Gunakan widget harga dinamis
             _buildInfoTile(
               title: 'Stok Saat Ini',
               value: _currentProduct.stock.toString(),

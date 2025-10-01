@@ -57,7 +57,8 @@ class Order {
   final double? shippingFee;
   final List<OrderProduct> products;
   final Timestamp? updatedAt;
-  final Timestamp? shippedAt; // <-- FIELD BARU DITAMBAHKAN
+  final Timestamp? shippedAt;
+  final String? kasir; // <-- BARU: Field untuk nama kasir
 
   Order({
     required this.id,
@@ -74,7 +75,8 @@ class Order {
     this.shippingFee,
     required this.products,
     this.updatedAt,
-    this.shippedAt, // <-- DITAMBAHKAN DI KONSTRUKTOR
+    this.shippedAt,
+    this.kasir, // <-- BARU: Ditambahkan di konstruktor
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
@@ -112,7 +114,8 @@ class Order {
           [],
       updatedAt:
           data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
-      shippedAt: _parseDateOrNull(data['shippedAt']), // <-- LOGIKA PARSING DITAMBAHKAN
+      shippedAt: _parseDateOrNull(data['shippedAt']), 
+      kasir: _parseStringOrNull(data['kasir']), // <-- BARU: Logika parsing
     );
   }
 
@@ -134,8 +137,10 @@ class Order {
     List<OrderProduct>? products,
     Timestamp? updatedAt,
     bool allowNullUpdatedAt = false,
-    Timestamp? shippedAt, // <-- DITAMBAHKAN DI COPYWITH
+    Timestamp? shippedAt, 
     bool allowNullShippedAt = false,
+    String? kasir, // <-- BARU: Ditambahkan di copyWith
+    bool allowNullKasir = false,
   }) {
     return Order(
       id: id ?? this.id,
@@ -152,7 +157,8 @@ class Order {
       shippingFee: allowNullShippingFee ? shippingFee : (shippingFee ?? this.shippingFee),
       products: products ?? this.products,
       updatedAt: allowNullUpdatedAt ? updatedAt : (updatedAt ?? this.updatedAt),
-      shippedAt: allowNullShippedAt ? shippedAt : (shippedAt ?? this.shippedAt), // <-- LOGIKA COPYWITH DITAMBAHKAN
+      shippedAt: allowNullShippedAt ? shippedAt : (shippedAt ?? this.shippedAt),
+      kasir: allowNullKasir ? kasir : (kasir ?? this.kasir), // <-- BARU: Logika copyWith
     );
   }
 }

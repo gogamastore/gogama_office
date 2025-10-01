@@ -28,11 +28,13 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
     await _fetchOrders();
   }
 
+  // DIPERBARUI: Menambahkan parameter opsional 'validatorName'
   Future<bool> updateOrder(String orderId, List<OrderItem> products,
-      double shippingFee, double newTotal) async {
+      double shippingFee, double newTotal, {String? validatorName}) async {
     try {
+      // DIPERBARUI: Meneruskan 'validatorName' ke service
       await _orderService.updateOrderDetails(
-          orderId, products, shippingFee, newTotal);
+          orderId, products, shippingFee, newTotal, validatorName: validatorName);
       await refresh();
       return true;
     } catch (e, s) {

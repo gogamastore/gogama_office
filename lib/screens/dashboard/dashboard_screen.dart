@@ -1,9 +1,10 @@
-// lib/screens/dashboard/dashboard_screen.dart
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/user_model.dart';
+import '../../providers/user_provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/dashboard_data.dart';
@@ -19,19 +20,39 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _refreshData() async {
-    // FIX: Await the refresh calls to handle the futures correctly.
     await ref.refresh(dashboardDataProvider.future);
     await ref.refresh(salesAnalyticsProvider.future);
+    // Refresh user data juga jika diperlukan
+    await ref.refresh(userDataProvider.future);
   }
 
   @override
   Widget build(BuildContext context) {
     final dashboardDataAsync = ref.watch(dashboardDataProvider);
     final salesDataAsync = ref.watch(salesAnalyticsProvider);
-    final user = ref.watch(authStateChangesProvider).value;
+    final userDataAsync = ref.watch(userDataProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        title: const Text(
+          'Grosir Gallery Makassar',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Color.fromARGB(255, 5, 83, 239),
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFF5DADE2)),
+            tooltip: 'Keluar',
+            onPressed: () => ref.read(authServiceProvider).signOut(),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
         child: SingleChildScrollView(
@@ -40,7 +61,11 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(user?.email?.split('@')[0] ?? 'User', ref),
+                userDataAsync.when(
+                  data: (user) => _buildHeader(user),
+                  loading: () => _buildHeader(null), // Tampilkan header dengan state loading
+                  error: (err, stack) => Center(child: Text('Gagal memuat data user: $err')),
+                ),
                 const SizedBox(height: 24),
                 dashboardDataAsync.when(
                   data: (data) => _buildStatsContainer(data),
@@ -72,23 +97,27 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildHeader(String userName, WidgetRef ref) {
+  Widget _buildHeader(UserModel? user) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor: const Color(0xFFE0E6ED),
+          backgroundImage: (user?.photoURL != null && user!.photoURL!.isNotEmpty)
+              ? NetworkImage(user.photoURL!)
+              : null,
+          child: (user?.photoURL == null || user!.photoURL!.isEmpty)
+              ? const Icon(Icons.person, size: 30, color: Color(0xFFBDC3C7))
+              : null,
+        ),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Grosir Gallery Makassar',
-                style: TextStyle(
-                    fontSize: 16, color: Color.fromARGB(255, 217, 9, 9)),
-              ),
-              const SizedBox(height: 4),
               Text(
-                userName,
+                user?.name ?? 'Memuat pengguna...', // Tampilkan nama atau pesan loading
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -96,12 +125,17 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Jabatan : ${user?.position ?? '...'}', // Tampilkan jabatan atau ...
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF7F8C8D),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.logout, color: Color(0xFF5DADE2)),
-          onPressed: () => ref.read(authServiceProvider).signOut(),
         ),
       ],
     );
@@ -244,7 +278,6 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
             height: 150,
             child: LineChart(
               LineChartData(
-                // FIX: Add const constructors
                 gridData: const FlGridData(show: false),
                 titlesData: const FlTitlesData(show: false),
                 borderData: FlBorderData(show: false),
@@ -255,11 +288,9 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
                     color: const Color(0xFF5DADE2),
                     barWidth: 4,
                     isStrokeCapRound: true,
-                    // FIX: Add const constructor
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      // FIX: Replace deprecated withOpacity with a const color with alpha
                       color: const Color(0x4D5DADE2),
                     ),
                   ),

@@ -120,11 +120,13 @@ class OrderService {
     }
   }
 
+  // DIPERBARUI: Menambahkan parameter opsional 'validatorName'
   Future<void> updateOrderDetails(
     String orderId,
     List<OrderItem> newProducts,
     double shippingFee,
     double newTotal,
+    {String? validatorName} // Parameter opsional
   ) async {
     final orderRef = _db.collection('orders').doc(orderId);
 
@@ -185,13 +187,21 @@ class OrderService {
       }
 
       final newProductsAsJson = newProducts.map((p) => p.toJson()).toList();
-      transaction.update(orderRef, {
+      
+      // BARU: Siapkan data update dan tambahkan 'kasir' jika ada
+      final Map<String, dynamic> updateData = {
         'products': newProductsAsJson,
         'productIds': newProducts.map((p) => p.productId).toList(),
         'shippingFee': shippingFee,
         'total': newTotal.toInt(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (validatorName != null) {
+        updateData['kasir'] = validatorName;
+      }
+
+      transaction.update(orderRef, updateData);
     });
   }
 }

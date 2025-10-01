@@ -1,83 +1,57 @@
-import 'dart:io';
-import 'dart:developer' as developer;
+import 'dart:typed_data'; // DIIMPOR: Untuk Uint8List, menggantikan dart:io
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../models/user_model.dart';
-import '../providers/auth_provider.dart';
 
 class UserService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final CollectionReference _userCollection =
+      FirebaseFirestore.instance.collection('user');
+
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // DITINGKATKAN: Konverter yang lebih aman untuk menangani kasus data tidak lengkap
-  CollectionReference<UserModel> get _userRef =>
-      _firestore.collection('user').withConverter<UserModel>(
-            fromFirestore: (snapshot, _) {
-              final data = snapshot.data();
-              if (data == null) {
-                // Jika tidak ada data sama sekali, kembalikan model default atau lemparkan galat
-                // Dalam kasus ini, kita asumsikan uid harus selalu ada
-                throw Exception("Dokumen pengguna tidak ada atau kosong.");
-              }
-              // SECURE: Secara eksplisit menambahkan/menimpa UID dari ID dokumen
-              // Ini menjamin bahwa field 'uid' di UserModel tidak akan pernah null.
-              data['uid'] = snapshot.id;
-              return UserModel.fromJson(data);
-            },
-            toFirestore: (user, _) => user.toJson(),
-          );
+  Stream<UserModel?> getUserData(String uid) {
+    return _userCollection.doc(uid).snapshots().map((snapshot) {
+      if (snapshot.exists) {
+        try {
+          final data = snapshot.data() as Map<String, dynamic>;
+          return UserModel.fromJson({'uid': snapshot.id, ...data});
+        } catch (e) {
+          print('Gagal mem-parsing user dengan ID: $uid, error: $e');
+          return null;
+        }
+      } else {
+        return null; 
+      }
+    });
+  }
 
-  Future<UserModel?> getUser(String uid) async {
+  Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     try {
-      final doc = await _userRef.doc(uid).get();
-      return doc.data();
-    } catch (e, s) {
-      developer.log(
-        'Gagal mengambil data pengguna.',
-        name: 'UserService.getUser',
-        error: e,
-        stackTrace: s,
-      );
-      // Mengembalikan null jika ada galat saat deserialisasi (misalnya dari 'fromJson')
-      return null;
+      await _userCollection.doc(uid).update(data);
+    } catch (e) {
+      print('Gagal memperbarui user dengan ID: $uid, error: $e');
+      rethrow;
     }
   }
 
-  Future<void> updateUser(UserModel user) async {
-    await _userRef.doc(user.uid).set(user, SetOptions(merge: true));
-  }
-
-  Future<String> uploadProfilePicture(String uid, File imageFile) async {
+  // DIPERBAIKI: Menerima Uint8List agar kompatibel dengan web
+  Future<String> uploadProfilePicture(String uid, Uint8List imageData) async {
     try {
-      final fileExtension = imageFile.path.split('.').last;
-      final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
-      final ref = _storage.ref('profile_pictures/$uid/$fileName');
+      final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final storageRef = _storage
+          .ref()
+          .child('profile_pictures')
+          .child(uid)
+          .child(fileName);
 
-      final uploadTask = await ref.putFile(imageFile);
+      // Menggunakan putData untuk Uint8List
+      final uploadTask = await storageRef.putData(imageData);
+
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       return downloadUrl;
-    } on FirebaseException catch (e, s) {
-      developer.log('Firebase Storage Error', name: 'UserService', error: e, stackTrace: s);
-      rethrow;
-    } catch (e, s) {
-      developer.log('Terjadi kesalahan tak terduga', name: 'UserService', error: e, stackTrace: s);
+    } catch (e) {
+      print('Gagal mengunggah gambar profil: $e');
       rethrow;
     }
   }
 }
-
-final userServiceProvider = Provider((ref) => UserService());
-
-// TIDAK ADA PERUBAHAN: Provider ini sudah benar
-final currentUserProvider = FutureProvider<UserModel?>((ref) {
-  final authState = ref.watch(authStateChangesProvider);
-  final userService = ref.watch(userServiceProvider);
-
-  final user = authState.asData?.value;
-  if (user != null) {
-    return userService.getUser(user.uid);
-  }
-  return Future.value(null); // Mengembalikan Future yang sudah selesai dengan nilai null
-});

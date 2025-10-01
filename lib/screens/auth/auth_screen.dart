@@ -52,14 +52,11 @@ class AuthScreenState extends ConsumerState<AuthScreen> {
                 child: Column(
                   children: [
                     Image.network(
-                      'https://firebasestorage.googleapis.com/v0/b/orderflow-r7jsk.firebasestorage.app/o/GO-icon.png?alt=media&token=6392ff28-38ce-4d04-a462-b82dcd24ab55',
-                      width: 80,
-                      height: 80,
+                      'https://firebasestorage.googleapis.com/v0/b/orderflow-r7jsk.firebasestorage.app/o/go%20logo.png?alt=media&token=cd0ae460-6836-4418-a44d-5c26fed509ec',
+                      width: 100,
+                      height: 100,
                     ),
-                    const SizedBox(height: 12),
-                    const Text('GOGAMA STORE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    const Text('Ready for Firebase Integration', style: TextStyle(fontSize: 12, color: Color(0xFF5DADE2))),
+                  
                   ],
                 ),
               ),

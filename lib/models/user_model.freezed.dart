@@ -21,14 +21,14 @@ UserModel _$UserModelFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$UserModel {
   String get uid => throw _privateConstructorUsedError;
-  String? get email =>
-      throw _privateConstructorUsedError; // Menggunakan @Default untuk memberikan nilai string kosong jika field tidak ada
-// Ini mencegah error TypeError jika 'name' null di Firestore.
-  String get name =>
-      throw _privateConstructorUsedError; // Hal yang sama untuk nomor WhatsApp
-  String get whatsapp =>
-      throw _privateConstructorUsedError; // Dan untuk URL foto
-  String get photoURL => throw _privateConstructorUsedError;
+  String get name => throw _privateConstructorUsedError;
+  String? get email => throw _privateConstructorUsedError;
+  String? get phone => throw _privateConstructorUsedError;
+  String? get photoURL =>
+      throw _privateConstructorUsedError; // Beri nilai default jika 'position' null di firestore
+  String get position => throw _privateConstructorUsedError;
+  String? get role => throw _privateConstructorUsedError;
+  String? get whatsapp => throw _privateConstructorUsedError;
 
   /// Serializes this UserModel to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -47,10 +47,13 @@ abstract class $UserModelCopyWith<$Res> {
   @useResult
   $Res call(
       {String uid,
-      String? email,
       String name,
-      String whatsapp,
-      String photoURL});
+      String? email,
+      String? phone,
+      String? photoURL,
+      String position,
+      String? role,
+      String? whatsapp});
 }
 
 /// @nodoc
@@ -69,32 +72,47 @@ class _$UserModelCopyWithImpl<$Res, $Val extends UserModel>
   @override
   $Res call({
     Object? uid = null,
-    Object? email = freezed,
     Object? name = null,
-    Object? whatsapp = null,
-    Object? photoURL = null,
+    Object? email = freezed,
+    Object? phone = freezed,
+    Object? photoURL = freezed,
+    Object? position = null,
+    Object? role = freezed,
+    Object? whatsapp = freezed,
   }) {
     return _then(_value.copyWith(
       uid: null == uid
           ? _value.uid
           : uid // ignore: cast_nullable_to_non_nullable
               as String,
-      email: freezed == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String?,
       name: null == name
           ? _value.name
           : name // ignore: cast_nullable_to_non_nullable
               as String,
-      whatsapp: null == whatsapp
-          ? _value.whatsapp
-          : whatsapp // ignore: cast_nullable_to_non_nullable
-              as String,
-      photoURL: null == photoURL
+      email: freezed == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String?,
+      phone: freezed == phone
+          ? _value.phone
+          : phone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      photoURL: freezed == photoURL
           ? _value.photoURL
           : photoURL // ignore: cast_nullable_to_non_nullable
+              as String?,
+      position: null == position
+          ? _value.position
+          : position // ignore: cast_nullable_to_non_nullable
               as String,
+      role: freezed == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as String?,
+      whatsapp: freezed == whatsapp
+          ? _value.whatsapp
+          : whatsapp // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -109,10 +127,13 @@ abstract class _$$UserModelImplCopyWith<$Res>
   @useResult
   $Res call(
       {String uid,
-      String? email,
       String name,
-      String whatsapp,
-      String photoURL});
+      String? email,
+      String? phone,
+      String? photoURL,
+      String position,
+      String? role,
+      String? whatsapp});
 }
 
 /// @nodoc
@@ -129,32 +150,47 @@ class __$$UserModelImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? uid = null,
-    Object? email = freezed,
     Object? name = null,
-    Object? whatsapp = null,
-    Object? photoURL = null,
+    Object? email = freezed,
+    Object? phone = freezed,
+    Object? photoURL = freezed,
+    Object? position = null,
+    Object? role = freezed,
+    Object? whatsapp = freezed,
   }) {
     return _then(_$UserModelImpl(
       uid: null == uid
           ? _value.uid
           : uid // ignore: cast_nullable_to_non_nullable
               as String,
-      email: freezed == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String?,
       name: null == name
           ? _value.name
           : name // ignore: cast_nullable_to_non_nullable
               as String,
-      whatsapp: null == whatsapp
-          ? _value.whatsapp
-          : whatsapp // ignore: cast_nullable_to_non_nullable
-              as String,
-      photoURL: null == photoURL
+      email: freezed == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String?,
+      phone: freezed == phone
+          ? _value.phone
+          : phone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      photoURL: freezed == photoURL
           ? _value.photoURL
           : photoURL // ignore: cast_nullable_to_non_nullable
+              as String?,
+      position: null == position
+          ? _value.position
+          : position // ignore: cast_nullable_to_non_nullable
               as String,
+      role: freezed == role
+          ? _value.role
+          : role // ignore: cast_nullable_to_non_nullable
+              as String?,
+      whatsapp: freezed == whatsapp
+          ? _value.whatsapp
+          : whatsapp // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -164,10 +200,13 @@ class __$$UserModelImplCopyWithImpl<$Res>
 class _$UserModelImpl implements _UserModel {
   const _$UserModelImpl(
       {required this.uid,
+      required this.name,
       this.email,
-      this.name = '',
-      this.whatsapp = '',
-      this.photoURL = ''});
+      this.phone,
+      this.photoURL,
+      this.position = 'Jabatan Tidak Diketahui',
+      this.role,
+      this.whatsapp});
 
   factory _$UserModelImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserModelImplFromJson(json);
@@ -175,24 +214,25 @@ class _$UserModelImpl implements _UserModel {
   @override
   final String uid;
   @override
-  final String? email;
-// Menggunakan @Default untuk memberikan nilai string kosong jika field tidak ada
-// Ini mencegah error TypeError jika 'name' null di Firestore.
-  @override
-  @JsonKey()
   final String name;
-// Hal yang sama untuk nomor WhatsApp
+  @override
+  final String? email;
+  @override
+  final String? phone;
+  @override
+  final String? photoURL;
+// Beri nilai default jika 'position' null di firestore
   @override
   @JsonKey()
-  final String whatsapp;
-// Dan untuk URL foto
+  final String position;
   @override
-  @JsonKey()
-  final String photoURL;
+  final String? role;
+  @override
+  final String? whatsapp;
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, email: $email, name: $name, whatsapp: $whatsapp, photoURL: $photoURL)';
+    return 'UserModel(uid: $uid, name: $name, email: $email, phone: $phone, photoURL: $photoURL, position: $position, role: $role, whatsapp: $whatsapp)';
   }
 
   @override
@@ -201,18 +241,22 @@ class _$UserModelImpl implements _UserModel {
         (other.runtimeType == runtimeType &&
             other is _$UserModelImpl &&
             (identical(other.uid, uid) || other.uid == uid) &&
-            (identical(other.email, email) || other.email == email) &&
             (identical(other.name, name) || other.name == name) &&
-            (identical(other.whatsapp, whatsapp) ||
-                other.whatsapp == whatsapp) &&
+            (identical(other.email, email) || other.email == email) &&
+            (identical(other.phone, phone) || other.phone == phone) &&
             (identical(other.photoURL, photoURL) ||
-                other.photoURL == photoURL));
+                other.photoURL == photoURL) &&
+            (identical(other.position, position) ||
+                other.position == position) &&
+            (identical(other.role, role) || other.role == role) &&
+            (identical(other.whatsapp, whatsapp) ||
+                other.whatsapp == whatsapp));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, uid, email, name, whatsapp, photoURL);
+  int get hashCode => Object.hash(
+      runtimeType, uid, name, email, phone, photoURL, position, role, whatsapp);
 
   /// Create a copy of UserModel
   /// with the given fields replaced by the non-null parameter values.
@@ -233,10 +277,13 @@ class _$UserModelImpl implements _UserModel {
 abstract class _UserModel implements UserModel {
   const factory _UserModel(
       {required final String uid,
+      required final String name,
       final String? email,
-      final String name,
-      final String whatsapp,
-      final String photoURL}) = _$UserModelImpl;
+      final String? phone,
+      final String? photoURL,
+      final String position,
+      final String? role,
+      final String? whatsapp}) = _$UserModelImpl;
 
   factory _UserModel.fromJson(Map<String, dynamic> json) =
       _$UserModelImpl.fromJson;
@@ -244,15 +291,19 @@ abstract class _UserModel implements UserModel {
   @override
   String get uid;
   @override
-  String?
-      get email; // Menggunakan @Default untuk memberikan nilai string kosong jika field tidak ada
-// Ini mencegah error TypeError jika 'name' null di Firestore.
+  String get name;
   @override
-  String get name; // Hal yang sama untuk nomor WhatsApp
+  String? get email;
   @override
-  String get whatsapp; // Dan untuk URL foto
+  String? get phone;
   @override
-  String get photoURL;
+  String? get photoURL; // Beri nilai default jika 'position' null di firestore
+  @override
+  String get position;
+  @override
+  String? get role;
+  @override
+  String? get whatsapp;
 
   /// Create a copy of UserModel
   /// with the given fields replaced by the non-null parameter values.

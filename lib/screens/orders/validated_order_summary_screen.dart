@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../../models/order.dart';
 import '../../models/order_item.dart';
+import '../../models/staff_model.dart';
 import '../../providers/order_provider.dart';
+import '../../services/staff_service.dart'; // Impor provider admin
 
 class ValidatedOrderSummaryScreen extends ConsumerStatefulWidget {
   final Order originalOrder;
@@ -23,9 +25,18 @@ class ValidatedOrderSummaryScreen extends ConsumerStatefulWidget {
 
 class _ValidatedOrderSummaryScreenState
     extends ConsumerState<ValidatedOrderSummaryScreen> {
+  // BARU: Kunci untuk validasi form
+  final _formKey = GlobalKey<FormState>();
+  // BARU: Variabel untuk menyimpan nama admin yang dipilih
+  String? _selectedAdminName;
   bool _isProcessing = false;
 
   void _onConfirmAndProcess() async {
+    // BARU: Validasi form sebelum proses
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
 
@@ -41,20 +52,23 @@ class _ValidatedOrderSummaryScreenState
       final orderId = widget.originalOrder.id;
       final orderNotifier = ref.read(orderProvider.notifier);
 
+      // DIPERBARUI: Mengirim nama validator sebagai parameter opsional
       final success = await orderNotifier.updateOrder(
         orderId,
         widget.validatedItems,
         shippingCost,
-        newGrandTotal, 
+        newGrandTotal,
+        validatorName: _selectedAdminName, // Kirim nama validator
       );
 
       if (success) {
+        // Perhatikan: Pemanggilan updateOrderStatus dipindahkan ke sini agar hanya berjalan setelah updateOrder berhasil.
         await ref.read(orderServiceProvider).updateOrderStatus(orderId, 'processing');
 
         ref.invalidate(orderProvider);
         ref.invalidate(orderDetailsProvider(orderId));
         ref.invalidate(orderStatusCountsProvider);
-        
+
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             const SnackBar(
@@ -66,7 +80,6 @@ class _ValidatedOrderSummaryScreenState
       } else {
         throw Exception('Gagal memperbarui detail pesanan.');
       }
-
     } catch (error) {
       if (mounted) {
         scaffoldMessenger.showSnackBar(
@@ -84,11 +97,14 @@ class _ValidatedOrderSummaryScreenState
   Widget build(BuildContext context) {
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    
+
     final newSubtotal = widget.validatedItems
         .fold(0.0, (sum, item) => sum + (item.quantity * item.price));
     final shippingCost = widget.originalOrder.shippingFee ?? 0;
     final newGrandTotal = newSubtotal + shippingCost;
+
+    // BARU: Mengambil daftar admin dari provider
+    final adminUsersAsyncValue = ref.watch(adminUsersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -96,85 +112,112 @@ class _ValidatedOrderSummaryScreenState
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        // CATATAN: ConstrainedBox dihapus karena tidak lagi diperlukan dan berpotensi
-        // menyebabkan masalah layout lain jika tidak digunakan dengan benar.
-        // Column akan secara alami mengambil ruang yang dibutuhkan oleh anak-anaknya.
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Ringkasan Pesanan Baru',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              elevation: 2,
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Nomor Pesanan:', style: TextStyle(color: Colors.grey[600])),
-                          Text(widget.originalOrder.id,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold)),
-                        ]),
-                    const Divider(height: 24),
-                    ...widget.validatedItems.map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: ListTile(
-                            visualDensity: VisualDensity.compact,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Text(
-                                '${item.quantity} x ${currencyFormatter.format(item.price)}'),
-                            trailing: Text(
-                                currencyFormatter.format(item.quantity * item.price), style: const TextStyle(fontWeight: FontWeight.w500)),
-                          ),
-                        )),
-                    const Divider(height: 24),
-                    _buildSummaryRow(title: 'Subtotal', amount: newSubtotal, formatter: currencyFormatter),
-                    const SizedBox(height: 8),
-                    _buildSummaryRow(title: 'Ongkos Kirim', amount: shippingCost.toDouble(), formatter: currencyFormatter),
-                    const Divider(),
-                    _buildSummaryRow(
-                      title: 'Grand Total',
-                      amount: newGrandTotal,
-                      formatter: currencyFormatter,
-                      isTotal: true,
-                    ),
-                  ],
+        child: Form(
+          key: _formKey, // BARU: Menetapkan kunci form
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Ringkasan Pesanan Baru',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                elevation: 2,
+                margin: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Nomor Pesanan:', style: TextStyle(color: Colors.grey[600])),
+                            Text(widget.originalOrder.id,
+                                style:
+                                    const TextStyle(fontWeight: FontWeight.bold)),
+                          ]),
+                      const Divider(height: 24),
+                      ...widget.validatedItems.map((item) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: ListTile(
+                              visualDensity: VisualDensity.compact,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: Text(
+                                  '${item.quantity} x ${currencyFormatter.format(item.price)}'),
+                              trailing: Text(
+                                  currencyFormatter.format(item.quantity * item.price), style: const TextStyle(fontWeight: FontWeight.w500)),
+                            ),
+                          )),
+                      const Divider(height: 24),
+                      _buildSummaryRow(title: 'Subtotal', amount: newSubtotal, formatter: currencyFormatter),
+                      const SizedBox(height: 8),
+                      _buildSummaryRow(title: 'Ongkos Kirim', amount: shippingCost.toDouble(), formatter: currencyFormatter),
+                      const Divider(),
+                      _buildSummaryRow(
+                        title: 'Grand Total',
+                        amount: newGrandTotal,
+                        formatter: currencyFormatter,
+                        isTotal: true,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // --- PERBAIKAN: Mengganti Spacer dengan SizedBox --- 
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 24),
+
+              // BARU: Dropdown untuk memilih admin validator
+              adminUsersAsyncValue.when(
+                data: (admins) => DropdownButtonFormField<String>(
+                  value: _selectedAdminName,
+                  hint: const Text('Pilih nama...'),
+                  decoration: const InputDecoration(
+                    labelText: 'Di Validasi oleh',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: admins.map<DropdownMenuItem<String>>((Staff admin) {
+                    return DropdownMenuItem<String>(
+                      value: admin.name,
+                      child: Text(admin.name),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedAdminName = newValue;
+                    });
+                  },
+                  validator: (value) =>
+                      value == null || value.isEmpty ? 'Harap pilih nama validator' : null,
                 ),
-                onPressed: _isProcessing ? null : _onConfirmAndProcess,
-                child: _isProcessing
-                    ? const SizedBox(
-                        width: 24, 
-                        height: 24, 
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)
-                      )
-                    : const Text('Proses Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Center(child: Text('Gagal memuat admin: $err')),
               ),
-            ),
-            // Menambahkan sedikit ruang di bawah agar tidak terlalu mepet dengan tepi bawah layar
-            const SizedBox(height: 16),
-          ],
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isProcessing ? null : _onConfirmAndProcess,
+                  child: _isProcessing
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                      : const Text('Proses Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

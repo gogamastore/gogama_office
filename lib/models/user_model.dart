@@ -7,19 +7,16 @@ part 'user_model.g.dart';
 class UserModel with _$UserModel {
   const factory UserModel({
     required String uid,
-    String? email, 
-    
-    // Menggunakan @Default untuk memberikan nilai string kosong jika field tidak ada
-    // Ini mencegah error TypeError jika 'name' null di Firestore.
-    @Default('') String name,
-    
-    // Hal yang sama untuk nomor WhatsApp
-    @Default('') String whatsapp,
-    
-    // Dan untuk URL foto
-    @Default('') String photoURL,
-
+    required String name,
+    String? email,
+    String? phone,
+    String? photoURL,
+    // Beri nilai default jika 'position' null di firestore
+    @Default('Jabatan Tidak Diketahui') String position,
+    String? role,
+    String? whatsapp,
   }) = _UserModel;
 
-  factory UserModel.fromJson(Map<String, dynamic> json) => _$UserModelFromJson(json);
+  factory UserModel.fromJson(Map<String, dynamic> json) =>
+      _$UserModelFromJson(json);
 }
