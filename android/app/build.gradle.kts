@@ -1,18 +1,35 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Baca file properti keystore
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
-    // PERBAIKAN: Menyamakan namespace dengan package name yang benar
     namespace = "store.gogama.office"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    // Konfigurasi untuk menandatangani aplikasi
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String?
+            keyPassword = keystoreProperties["keyPassword"] as String?
+            // PERBAIKAN: Resolve path dari rootProject (direktori 'android')
+            storeFile = if (keystoreProperties["storeFile"] != null) rootProject.file(keystoreProperties["storeFile"] as String) else null
+            storePassword = keystoreProperties["storePassword"] as String?
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -24,7 +41,6 @@ android {
     }
 
     defaultConfig {
-        // PERBAIKAN: Menyamakan Application ID dengan package name yang benar
         applicationId = "store.gogama.office"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
@@ -35,7 +51,8 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            // Gunakan konfigurasi penandatanganan rilis
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
