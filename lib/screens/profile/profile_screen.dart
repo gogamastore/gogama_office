@@ -7,6 +7,7 @@ import 'profile_settings_screen.dart';
 import 'reports_screen.dart';
 import 'security_screen.dart';
 import '../settings/settings_screen.dart'; // DIIMPOR: Halaman Pengaturan Toko
+import '../../models/user_model.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -16,6 +17,19 @@ class ProfileScreen extends ConsumerWidget {
     // DIPERBAIKI: Menggunakan provider yang benar
     final userData = ref.watch(userDataProvider);
     final authService = ref.read(authServiceProvider);
+
+    void _navigateToSettings(UserModel? user) {
+      if (user != null && (user.position == 'Admin' || user.position == 'Owner')) {
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SettingsScreen()));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Anda tidak memiliki hak akses.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -74,7 +88,10 @@ class ProfileScreen extends ConsumerWidget {
                       context,
                       icon: Icons.store_outlined,
                       title: 'Pengaturan Toko',
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const SettingsScreen())),
+                      onTap: () {
+                        final user = ref.read(userDataProvider).asData?.value;
+                        _navigateToSettings(user);
+                      },
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     _buildProfileMenuItem(

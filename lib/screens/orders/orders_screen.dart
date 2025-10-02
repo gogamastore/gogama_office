@@ -162,7 +162,6 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  // --- PERUBAHAN UTAMA ADA DI FUNGSI INI ---
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final double totalValue = double.tryParse(order.total) ?? 0.0;
@@ -272,15 +271,41 @@ class OrdersScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
+                      onPressed: () async { // DIBUAT ASYNC
                         String nextStatus = '';
                         if (order.status == 'pending') nextStatus = 'processing';
                         if (order.status == 'processing') nextStatus = 'shipped';
 
-                        if (nextStatus.isNotEmpty) {
-                          ref.read(orderServiceProvider).updateOrderStatus(order.id, nextStatus).then((_) {
-                            ref.read(orderProvider.notifier).refresh();
-                          });
+                        // HANYA TAMPILKAN DIALOG UNTUK "PROSES PESANAN"
+                        if (order.status == 'pending') {
+                           final bool? confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                    title: const Text('Validasi Pesanan'),
+                                    content: const Text('Apakah Pesanan ini sudah di Validasi?'),
+                                    actions: [
+                                        TextButton(
+                                            onPressed: () => Navigator.of(context).pop(false),
+                                            child: const Text('Batal'),
+                                        ),
+                                        TextButton(
+                                            onPressed: () => Navigator.of(context).pop(true),
+                                            child: const Text('Ya'),
+                                        ),
+                                    ],
+                                ),
+                            );
+
+                            if (confirmed == true && nextStatus.isNotEmpty) {
+                                ref.read(orderServiceProvider).updateOrderStatus(order.id, nextStatus).then((_) {
+                                    ref.read(orderProvider.notifier).refresh();
+                                });
+                            }
+                        } else if (nextStatus.isNotEmpty) {
+                           // Untuk status lain, langsung eksekusi seperti sebelumnya
+                           ref.read(orderServiceProvider).updateOrderStatus(order.id, nextStatus).then((_) {
+                                ref.read(orderProvider.notifier).refresh();
+                           });
                         }
                       },
                       icon: const Icon(Ionicons.arrow_forward_circle_outline, color: Colors.white, size: 18),
@@ -302,7 +327,6 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  // --- WIDGET BARU UNTUK TOMBOL PEMBAYARAN ---
   Widget _buildPaymentButton(BuildContext context, WidgetRef ref, Order order) {
     final bool isUnpaid = order.paymentStatus.toLowerCase() == 'unpaid';
     final bool hasProof = order.paymentProofUrl != null && order.paymentProofUrl!.isNotEmpty;
@@ -372,7 +396,6 @@ class OrdersScreen extends ConsumerWidget {
       );
     }
   }
-  // --- AKHIR WIDGET BARU ---
 
   Widget _buildEmptyState(String activeFilter) {
     return Center(

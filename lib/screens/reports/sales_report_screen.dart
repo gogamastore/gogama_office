@@ -7,6 +7,8 @@ import 'package:ionicons/ionicons.dart';
 import '../../models/sales_report_data.dart';
 import '../../providers/sales_report_provider.dart';
 import '../../providers/product_images_provider.dart';
+import '../../providers/user_provider.dart'; // DIIMPOR
+import '../../models/user_model.dart'; // DIIMPOR
 import '../../utils/formatter.dart' as formatter;
 
 class SalesReportScreen extends ConsumerStatefulWidget {
@@ -21,7 +23,9 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(salesReportProvider.notifier).setFilter(SalesReportFilterType.today);
+      ref
+          .read(salesReportProvider.notifier)
+          .setFilter(SalesReportFilterType.today);
     });
   }
 
@@ -43,6 +47,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(salesReportProvider);
     final notifier = ref.read(salesReportProvider.notifier);
+    final userData = ref.watch(userDataProvider); // DITAMBAHKAN
 
     return Scaffold(
       appBar: AppBar(
@@ -64,10 +69,17 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                   child: Padding(
                 padding: EdgeInsets.symmetric(vertical: 48.0),
                 child: CircularProgressIndicator(),
-              )) else if (state.errorMessage != null)
+              ))
+            else if (state.errorMessage != null)
               Center(child: Text('Gagal memuat data: ${state.errorMessage}'))
             else if (state.reportData != null) ...[
-              _buildMetrics(state.reportData!),
+              userData.when(
+                data: (user) => _buildMetrics(state.reportData!, user),
+                loading: () =>
+                    const SizedBox.shrink(), // Atau widget loading kecil
+                error: (err, stack) =>
+                    const SizedBox.shrink(), // Sembunyikan jika error
+              ),
               const SizedBox(height: 16),
               _buildTrendsCard(state.reportData!),
               const SizedBox(height: 16),
@@ -96,10 +108,14 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildFilterChip(notifier, state, SalesReportFilterType.today, 'Hari Ini'),
-                  _buildFilterChip(notifier, state, SalesReportFilterType.yesterday, 'Kemarin'),
-                  _buildFilterChip(notifier, state, SalesReportFilterType.last7days, '7 Hari Terakhir'),
-                  _buildFilterChip(notifier, state, SalesReportFilterType.thisMonth, 'Bulan Ini'),
+                  _buildFilterChip(
+                      notifier, state, SalesReportFilterType.today, 'Hari Ini'),
+                  _buildFilterChip(notifier, state,
+                      SalesReportFilterType.yesterday, 'Kemarin'),
+                  _buildFilterChip(notifier, state,
+                      SalesReportFilterType.last7days, '7 Hari Terakhir'),
+                  _buildFilterChip(notifier, state,
+                      SalesReportFilterType.thisMonth, 'Bulan Ini'),
                 ],
               ),
             ),
@@ -126,7 +142,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  Widget _buildFilterChip(SalesReportNotifier notifier, SalesReportState state, SalesReportFilterType filterType, String label) {
+  Widget _buildFilterChip(SalesReportNotifier notifier, SalesReportState state,
+      SalesReportFilterType filterType, String label) {
     final bool isActive = state.activeFilter == filterType;
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
@@ -146,32 +163,36 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
     );
   }
 
-  Widget _buildMetrics(SalesReportData data) {
+  Widget _buildMetrics(SalesReportData data, UserModel? user) {
+    final bool canViewFinancials =
+        user != null && (user.position == 'Admin' || user.position == 'Owner');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildMetricCard(
-                'Total Penjualan',
-                formatter.formatCurrency(data.totalRevenue),
-                Ionicons.cash_outline,
-                color: Colors.blue.shade700,
+        if (canViewFinancials)
+          Row(
+            children: [
+              Expanded(
+                child: _buildMetricCard(
+                  'Total Penjualan',
+                  formatter.formatCurrency(data.totalRevenue),
+                  Ionicons.cash_outline,
+                  color: Colors.blue.shade700,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildMetricCard(
-                'Laba Kotor',
-                formatter.formatCurrency(data.grossProfit),
-                Ionicons.wallet_outline,
-                color: Colors.green.shade700,
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMetricCard(
+                  'Laba Kotor',
+                  formatter.formatCurrency(data.grossProfit),
+                  Ionicons.wallet_outline,
+                  color: Colors.green.shade700,
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            ],
+          ),
+        if (canViewFinancials) const SizedBox(height: 12),
         _buildMetricCard(
           'Total Pesanan',
           data.orders.length.toString(),
@@ -248,7 +269,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tren Penjualan', style: Theme.of(context).textTheme.titleLarge),
+            Text('Tren Penjualan',
+                style: Theme.of(context).textTheme.titleLarge),
             Text('Visualisasi pendapatan harian',
                 style: Theme.of(context)
                     .textTheme
@@ -316,13 +338,16 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                         barWidth: 3,
                         isStrokeCapRound: true,
                         dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(show: true,
-                            color: Theme.of(context).primaryColor.withAlpha(50)),
+                        belowBarData: BarAreaData(
+                            show: true,
+                            color:
+                                Theme.of(context).primaryColor.withAlpha(50)),
                       ),
                     ],
                   ),
                 ),
-              ) else
+              )
+            else
               const SizedBox(
                 height: 200,
                 child: Center(
@@ -342,7 +367,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+          constraints:
+              BoxConstraints(minWidth: MediaQuery.of(context).size.width),
           child: DataTable(
             showCheckboxColumn: false,
             columnSpacing: 24,
@@ -362,8 +388,8 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                 cells: [
                   DataCell(Text(DateFormat('dd MMM yyyy')
                       .format(order.orderDate.toDate()))),
-                  DataCell(
-                      Text(order.customerName, overflow: TextOverflow.ellipsis)),
+                  DataCell(Text(order.customerName,
+                      overflow: TextOverflow.ellipsis)),
                   DataCell(Text(formatter.formatCurrency(order.totalRevenue))),
                   DataCell(Text(_translateStatus(order.status))),
                 ],
@@ -446,28 +472,29 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                           'Tanggal: ${DateFormat('dd MMMM yyyy').format(order.orderDate.toDate())}'),
                       Text('Pelanggan: ${order.customerName}'),
                       const SizedBox(height: 4),
-
                       Row(
                         children: [
-                           const Text('Status Pembayaran: '),
-                           const SizedBox(width: 8),
-                           Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: getPaymentStatusColor(order.paymentStatus).withAlpha(30),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                getPaymentStatusText(order.paymentStatus),
-                                style: TextStyle(
-                                  color: getPaymentStatusColor(order.paymentStatus),
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          const Text('Status Pembayaran: '),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: getPaymentStatusColor(order.paymentStatus)
+                                  .withAlpha(30),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              getPaymentStatusText(order.paymentStatus),
+                              style: TextStyle(
+                                color:
+                                    getPaymentStatusColor(order.paymentStatus),
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                          ),
                         ],
                       ),
-
                       const Divider(height: 24),
                       Text('Rincian Produk Terjual',
                           style: Theme.of(context)
@@ -477,8 +504,10 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                       const SizedBox(height: 8),
                       Expanded(
                         child: images.when(
-                          loading: () => const Center(child: CircularProgressIndicator()),
-                          error: (err, stack) => const Center(child: Text('Gagal memuat gambar')),
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
+                          error: (err, stack) =>
+                              const Center(child: Text('Gagal memuat gambar')),
                           data: (imageMap) {
                             return SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
@@ -488,9 +517,12 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                                   horizontalMargin: 10,
                                   columns: const [
                                     DataColumn(label: Text('Produk')),
-                                    DataColumn(label: Text('Jml'), numeric: true),
-                                    DataColumn(label: Text('Harga'), numeric: true),
-                                    DataColumn(label: Text('Subtotal'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Jml'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Harga'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Subtotal'), numeric: true),
                                   ],
                                   rows: order.items.map((item) {
                                     final imageUrl = imageMap[item.productId];
@@ -501,26 +533,51 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                                             width: 180,
                                             child: Row(
                                               children: [
-                                                if (imageUrl != null && imageUrl.isNotEmpty)
-                                                  Image.network(imageUrl, width: 37, height: 37, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Ionicons.image_outline, size: 37))
+                                                if (imageUrl != null &&
+                                                    imageUrl.isNotEmpty)
+                                                  Image.network(imageUrl,
+                                                      width: 37,
+                                                      height: 37,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (c, e, s) =>
+                                                          const Icon(
+                                                              Ionicons
+                                                                  .image_outline,
+                                                              size: 37))
                                                 else
-                                                  Container(width: 37, height: 37, color: Colors.grey.shade200, child: const Icon(Ionicons.image_outline)),
+                                                  Container(
+                                                      width: 37,
+                                                      height: 37,
+                                                      color:
+                                                          Colors.grey.shade200,
+                                                      child: const Icon(Ionicons
+                                                          .image_outline)),
                                                 const SizedBox(width: 8),
                                                 Flexible(
-                                                  child: Text(
-                                                    item.productName,
-                                                    style: const TextStyle(fontSize: 10),
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis
-                                                  )
-                                                ),
+                                                    child: Text(
+                                                        item.productName,
+                                                        style: const TextStyle(
+                                                            fontSize: 10),
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow
+                                                            .ellipsis)),
                                               ],
                                             ),
                                           ),
                                         ),
-                                        DataCell(Text(item.quantity.toString(), style: const TextStyle(fontSize: 10))),
-                                        DataCell(Text(formatter.formatCurrency(item.salePrice), style: const TextStyle(fontSize: 10))),
-                                        DataCell(Text(formatter.formatCurrency(item.totalSale), style: const TextStyle(fontSize: 10))),
+                                        DataCell(Text(item.quantity.toString(),
+                                            style:
+                                                const TextStyle(fontSize: 10))),
+                                        DataCell(Text(
+                                            formatter
+                                                .formatCurrency(item.salePrice),
+                                            style:
+                                                const TextStyle(fontSize: 10))),
+                                        DataCell(Text(
+                                            formatter
+                                                .formatCurrency(item.totalSale),
+                                            style:
+                                                const TextStyle(fontSize: 10))),
                                       ],
                                     );
                                   }).toList(),
@@ -535,8 +592,7 @@ class _SalesReportScreenState extends ConsumerState<SalesReportScreen> {
                           formatter.formatCurrency(order.totalRevenue)),
                       _buildDialogTotalRow(context, 'Total Pokok (HPP)',
                           formatter.formatCurrency(order.totalCogs)),
-                      _buildDialogTotalRow(
-                          context, 'Laba Kotor',
+                      _buildDialogTotalRow(context, 'Laba Kotor',
                           formatter.formatCurrency(order.grossProfit),
                           isProfit: true),
                     ],

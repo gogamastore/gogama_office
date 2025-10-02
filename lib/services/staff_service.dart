@@ -84,6 +84,13 @@ class StaffService {
     });
   }
 
+  // DITAMBAHKAN: Fungsi untuk hanya memperbarui posisi
+  Future<void> updateStaffPosition(String uid, String newPosition) {
+    return _userCollection.doc(uid).update({
+      'position': newPosition,
+    });
+  }
+
   Future<void> deleteStaff(String uid) async {
     await _userCollection.doc(uid).delete();
     print('User document for $uid deleted from Firestore.');

@@ -33,7 +33,6 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     _confirmPasswordController = TextEditingController();
 
     if (!_isNewStaff) {
-      // DIPERBARUI: Menggunakan 'position' untuk dropdown
       _selectedPosition = widget.staff!.position; 
     }
   }
@@ -60,7 +59,8 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
             _selectedPosition,
           );
         } else {
-          await staffService.updateStaffRole(
+          // DIPERBARUI: Menggunakan fungsi yang benar untuk hanya memperbarui posisi
+          await staffService.updateStaffPosition(
             widget.staff!.id,
             _selectedPosition,
           );
