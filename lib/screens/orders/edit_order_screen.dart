@@ -11,8 +11,6 @@ import '../../providers/order_provider.dart';
 import 'edit_order_item_dialog.dart';
 import 'select_product_screen.dart';
 
-// MODERNISASI TOTAL: File ini sekarang menggunakan OrderItem secara eksklusif.
-
 class EditOrderScreen extends ConsumerStatefulWidget {
   final Order order;
 
@@ -23,7 +21,6 @@ class EditOrderScreen extends ConsumerStatefulWidget {
 }
 
 class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
-  // LANGKAH 1: State sekarang menggunakan List<OrderItem>
   late List<OrderItem> _items;
   late TextEditingController _shippingFeeController;
   double _subtotal = 0;
@@ -33,10 +30,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   @override
   void initState() {
     super.initState();
-    // LANGKAH 2: Konversi dari OrderProduct ke OrderItem hanya sekali saat inisialisasi.
     _items = widget.order.products.map((p) {
-      // Asumsi OrderProduct memiliki semua data yang diperlukan.
-      // Jika tidak, Anda mungkin perlu mengambil data produk tambahan di sini.
       return OrderItem(
         productId: p.productId,
         name: p.name,
@@ -70,7 +64,6 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     });
   }
 
-  // LANGKAH 3: Logika Edit disederhanakan, tidak perlu konversi.
   void _editItem(int index) async {
     final itemToEdit = _items[index];
 
@@ -101,7 +94,6 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     );
   }
 
-  // LANGKAH 4: Logika Tambah Produk sekarang membuka halaman baru.
   void _addProduct() async {
     final Product? selectedProduct = await Navigator.push<Product>(
       context,
@@ -134,17 +126,16 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     }
   }
 
-  // LANGKAH 5: Logika Simpan sekarang modern dan bersih.
   Future<void> _saveChanges() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
 
     try {
-      // Tidak perlu konversi, _items sudah dalam format yang benar.
       final success = await ref.read(orderProvider.notifier).updateOrder(
             widget.order.id,
-            _items, // Langsung kirim List<OrderItem>
+            _items, 
             double.tryParse(_shippingFeeController.text) ?? 0.0,
+            _subtotal, // DITAMBAHKAN
             _total,
           );
 
@@ -157,7 +148,6 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
         );
         Navigator.of(context).pop();
       } else if (mounted) {
-        // Handle kasus ketika success == false
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Gagal memperbarui pesanan. Silakan coba lagi.'),
@@ -259,7 +249,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
           decimalDigits: 0,
         );
         return _OrderItemCard(
-          item: item, // Sekarang mengirim OrderItem
+          item: item, 
           currencyFormatter: currencyFormatter,
           onTap: () => _editItem(index),
           onRemove: () => _removeProduct(index),
@@ -339,7 +329,6 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   }
 }
 
-// LANGKAH 6: Widget Card sekarang menerima OrderItem
 class _OrderItemCard extends ConsumerWidget {
   final OrderItem item;
   final NumberFormat currencyFormatter;

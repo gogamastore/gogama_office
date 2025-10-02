@@ -16,7 +16,6 @@ class OrderService {
     });
   }
 
-  // --- FUNGSI YANG DIPERBAIKI ---
   Future<List<OrderProduct>> _enrichProducts(
       List<OrderProduct> orderProducts) async {
     if (orderProducts.isEmpty) return [];
@@ -27,26 +26,22 @@ class OrderService {
     final Map<String, Product> productMap = {};
     const chunkSize = 30; // Batas maksimum untuk kueri 'in' di Firestore
 
-    // Pecah productIds menjadi beberapa bagian (chunk) yang lebih kecil
     for (var i = 0; i < productIds.length; i += chunkSize) {
       final chunk = productIds.sublist(
           i, i + chunkSize > productIds.length ? productIds.length : i + chunkSize);
       
       if (chunk.isNotEmpty) {
-        // Jalankan kueri untuk setiap bagian (chunk)
         final productSnapshots = await _db
             .collection('products')
             .where(FieldPath.documentId, whereIn: chunk)
             .get();
         
-        // Tambahkan hasil dari chunk ini ke dalam map utama
         for (var doc in productSnapshots.docs) {
           productMap[doc.id] = Product.fromFirestore(doc);
         }
       }
     }
 
-    // Proses pemetaan tetap sama
     return orderProducts.map((orderProduct) {
       final productDetails = productMap[orderProduct.productId];
       return orderProduct.copyWith(
@@ -56,7 +51,6 @@ class OrderService {
       );
     }).toList();
   }
-  // --- AKHIR PERBAIKAN ---
 
   Future<List<Order>> getAllOrders() async {
     final snapshot =
@@ -120,24 +114,23 @@ class OrderService {
     }
   }
 
-  // DIPERBARUI: Menambahkan parameter opsional 'validatorName'
   Future<void> updateOrderDetails(
     String orderId,
     List<OrderItem> newProducts,
     double shippingFee,
+    double newSubtotal, // DITAMBAHKAN
     double newTotal,
-    {String? validatorName} // Parameter opsional
+    {String? validatorName}
   ) async {
     final orderRef = _db.collection('orders').doc(orderId);
 
     await _db.runTransaction((transaction) async {
-      // FASE 1: BACA SEMUA DATA
+      // ... (logika transaksi yang ada tetap sama)
       final oldOrderSnapshot = await transaction.get(orderRef);
       if (!oldOrderSnapshot.exists) {
         throw Exception('Pesanan tidak ditemukan!');
       }
 
-      // FASE 2: LOGIKA & PERHITUNGAN (DALAM MEMORI)
       final oldOrderData = oldOrderSnapshot.data()!;
       final oldProducts = (oldOrderData['products'] as List)
           .map((p) => OrderItem.fromJson(p as Map<String, dynamic>))
@@ -157,13 +150,11 @@ class OrderService {
         }
       }
 
-      // LANJUTAN FASE 1: BACA SEMUA PRODUK TERKAIT
       final Map<String, DocumentSnapshot> productSnapshots = {};
       for (final productId in stockDelta.keys) {
         productSnapshots[productId] = await transaction.get(_db.collection('products').doc(productId));
       }
 
-      // FASE 3: VALIDASI (DALAM MEMORI)
       for (final entry in stockDelta.entries) {
         final productId = entry.key;
         final change = entry.value;
@@ -179,7 +170,6 @@ class OrderService {
         }
       }
 
-      // FASE 4: TULIS SEMUA PERUBAHAN
       for (final entry in stockDelta.entries) {
         final productId = entry.key;
         final change = entry.value;
@@ -188,11 +178,11 @@ class OrderService {
 
       final newProductsAsJson = newProducts.map((p) => p.toJson()).toList();
       
-      // BARU: Siapkan data update dan tambahkan 'kasir' jika ada
       final Map<String, dynamic> updateData = {
         'products': newProductsAsJson,
         'productIds': newProducts.map((p) => p.productId).toList(),
         'shippingFee': shippingFee,
+        'subtotal': newSubtotal.toInt(), // DITAMBAHKAN
         'total': newTotal.toInt(),
         'updatedAt': FieldValue.serverTimestamp(),
       };

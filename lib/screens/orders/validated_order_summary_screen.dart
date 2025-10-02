@@ -6,7 +6,7 @@ import '../../models/order.dart';
 import '../../models/order_item.dart';
 import '../../models/staff_model.dart';
 import '../../providers/order_provider.dart';
-import '../../services/staff_service.dart'; // Impor provider admin
+import '../../services/staff_service.dart';
 
 class ValidatedOrderSummaryScreen extends ConsumerStatefulWidget {
   final Order originalOrder;
@@ -25,14 +25,11 @@ class ValidatedOrderSummaryScreen extends ConsumerStatefulWidget {
 
 class _ValidatedOrderSummaryScreenState
     extends ConsumerState<ValidatedOrderSummaryScreen> {
-  // BARU: Kunci untuk validasi form
   final _formKey = GlobalKey<FormState>();
-  // BARU: Variabel untuk menyimpan nama admin yang dipilih
   String? _selectedAdminName;
   bool _isProcessing = false;
 
   void _onConfirmAndProcess() async {
-    // BARU: Validasi form sebelum proses
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -52,17 +49,17 @@ class _ValidatedOrderSummaryScreenState
       final orderId = widget.originalOrder.id;
       final orderNotifier = ref.read(orderProvider.notifier);
 
-      // DIPERBARUI: Mengirim nama validator sebagai parameter opsional
+      // PERBAIKAN: Menambahkan argumen newSubtotal yang hilang
       final success = await orderNotifier.updateOrder(
         orderId,
         widget.validatedItems,
         shippingCost,
+        newSubtotal, // Ditambahkan
         newGrandTotal,
-        validatorName: _selectedAdminName, // Kirim nama validator
+        validatorName: _selectedAdminName,
       );
 
       if (success) {
-        // Perhatikan: Pemanggilan updateOrderStatus dipindahkan ke sini agar hanya berjalan setelah updateOrder berhasil.
         await ref.read(orderServiceProvider).updateOrderStatus(orderId, 'processing');
 
         ref.invalidate(orderProvider);
@@ -103,7 +100,6 @@ class _ValidatedOrderSummaryScreenState
     final shippingCost = widget.originalOrder.shippingFee ?? 0;
     final newGrandTotal = newSubtotal + shippingCost;
 
-    // BARU: Mengambil daftar admin dari provider
     final adminUsersAsyncValue = ref.watch(adminUsersProvider);
 
     return Scaffold(
@@ -113,7 +109,7 @@ class _ValidatedOrderSummaryScreenState
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
-          key: _formKey, // BARU: Menetapkan kunci form
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -167,10 +163,10 @@ class _ValidatedOrderSummaryScreenState
                 ),
               ),
               const SizedBox(height: 24),
-
-              // BARU: Dropdown untuk memilih admin validator
               adminUsersAsyncValue.when(
                 data: (admins) => DropdownButtonFormField<String>(
+                  // PERBAIKAN: Menggunakan `value` karena ini adalah controlled component.
+                  // Peringatan linter mungkin tidak akurat dalam konteks ini.
                   value: _selectedAdminName,
                   hint: const Text('Pilih nama...'),
                   decoration: const InputDecoration(
@@ -194,9 +190,7 @@ class _ValidatedOrderSummaryScreenState
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (err, stack) => Center(child: Text('Gagal memuat admin: $err')),
               ),
-
               const SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

@@ -28,13 +28,11 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
     await _fetchOrders();
   }
 
-  // DIPERBARUI: Menambahkan parameter opsional 'validatorName'
   Future<bool> updateOrder(String orderId, List<OrderItem> products,
-      double shippingFee, double newTotal, {String? validatorName}) async {
+      double shippingFee, double newSubtotal, double newTotal, {String? validatorName}) async {
     try {
-      // DIPERBARUI: Meneruskan 'validatorName' ke service
       await _orderService.updateOrderDetails(
-          orderId, products, shippingFee, newTotal, validatorName: validatorName);
+          orderId, products, shippingFee, newSubtotal, newTotal, validatorName: validatorName);
       await refresh();
       return true;
     } catch (e, s) {
@@ -66,7 +64,6 @@ final orderStatusCountsProvider = Provider.autoDispose<Map<String, int>>((ref) {
   return counts;
 });
 
-// --- PERBAIKAN: Mengembalikan provider yang dibutuhkan oleh orders_screen.dart ---
 final orderFilterProvider = StateProvider<String>((ref) => 'all');
 
 final filteredOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
@@ -76,11 +73,9 @@ final filteredOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
   return allOrders.where((order) => order.status == filter).toList();
 });
 
-// --- PERBAIKAN: Memperbaiki implementasi provider untuk order_list_screen.dart ---
 final ordersByStatusProvider =
     Provider.family.autoDispose<AsyncValue<List<Order>>, String>((ref, status) {
   final allOrdersAsync = ref.watch(orderProvider);
-  // Transformasi dari satu AsyncValue ke AsyncValue lain yang sudah difilter
   return allOrdersAsync.when(
     data: (orders) =>
         AsyncValue.data(orders.where((o) => o.status == status).toList()),
