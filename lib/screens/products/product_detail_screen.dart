@@ -96,7 +96,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       decimalDigits: 0,
     );
     
-    // --- TAMBAHAN LOGIKA: Pantau data produk dan promo ---
     final promosAsync = ref.watch(promoProvider);
 
     ref.listen(allProductsProvider, (_, state) {
@@ -150,7 +149,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           children: [
             _buildImageSection(),
             const SizedBox(height: 24),
-            // --- PERUBAHAN LOGIKA: Kirim data promo ke info section ---
             _buildInfoSection(currencyFormatter, promosAsync),
             const Divider(height: 40, thickness: 1),
             _buildDescriptionSection(),
@@ -198,28 +196,26 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  // --- PERUBAHAN LOGIKA UTAMA ADA DI SINI ---
+  // --- PERUBAHAN TATA LETAK DI SINI ---
   Widget _buildInfoSection(NumberFormat currencyFormatter, AsyncValue<List<Promotion>> promosAsync) {
-    // Cari promo yang aktif untuk produk ini
     final activePromo = promosAsync.whenData((promos) {
       try {
         return promos.firstWhere((p) => 
             p.product.id == _currentProduct.id && 
             DateTime.now().isBefore(p.endDate));
       } catch (e) {
-        return null; // Tidak ada promo yang cocok
+        return null;
       }
     });
 
     Widget priceDisplayWidget;
-    // Jika ada promo aktif, tampilkan harga diskon
     if (activePromo.asData?.value != null) {
       final promo = activePromo.asData!.value!;
       priceDisplayWidget = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Harga Promo', // Judul diubah menjadi Harga Promo
+              'Harga Promo',
               style: TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
             ),
             const SizedBox(height: 4),
@@ -248,7 +244,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ],
         );
     } else {
-      // Jika tidak ada promo, tampilkan harga normal seperti biasa
       priceDisplayWidget = _buildInfoTile(
         title: 'Harga Jual',
         value: currencyFormatter.format(_currentProduct.price),
@@ -276,11 +271,15 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
           ),
         const SizedBox(height: 20),
+        // Baris pertama: Harga Beli dan Stok
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start, // Agar alignment rapi
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            priceDisplayWidget, // Gunakan widget harga dinamis
+            _buildInfoTile(
+              title: 'Harga Beli',
+              value: currencyFormatter.format(_currentProduct.purchasePrice ?? 0.0),
+            ),
             _buildInfoTile(
               title: 'Stok Saat Ini',
               value: _currentProduct.stock.toString(),
@@ -291,6 +290,9 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 20), 
+        // Baris kedua: Harga Jual atau Promo
+        priceDisplayWidget,
       ],
     );
   }
