@@ -64,14 +64,40 @@ final orderStatusCountsProvider = Provider.autoDispose<Map<String, int>>((ref) {
   return counts;
 });
 
-final orderFilterProvider = StateProvider<String>((ref) => 'all');
+final orderFilterProvider = StateProvider<String>((ref) => 'pending'); // Diubah ke 'pending'
+
+// BARU: State untuk menampung query pencarian
+final orderSearchQueryProvider = StateProvider<String>((ref) => '');
 
 final filteredOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
-  final filter = ref.watch(orderFilterProvider);
+  // 1. Dapatkan semua data dan filter
+  final statusFilter = ref.watch(orderFilterProvider);
+  final searchQuery = ref.watch(orderSearchQueryProvider).toLowerCase();
   final allOrders = ref.watch(orderProvider).value ?? [];
-  if (filter == 'all') return allOrders;
-  return allOrders.where((order) => order.status == filter).toList();
+
+  // 2. Terapkan filter status
+  final ordersFilteredByStatus = allOrders
+      .where((order) => order.status.toLowerCase() == statusFilter.toLowerCase())
+      .toList();
+
+  // 3. Jika tidak ada query pencarian, kembalikan hasil filter status
+  if (searchQuery.isEmpty) {
+    return ordersFilteredByStatus;
+  }
+
+  // 4. Terapkan filter pencarian (case-insensitive)
+  return ordersFilteredByStatus.where((order) {
+    final customerNameMatch = order.customer.toLowerCase().contains(searchQuery);
+    final orderIdMatch = order.id.toLowerCase().contains(searchQuery);
+    final skuMatch = order.products.any((product) {
+      final sku = product.sku;
+      return sku != null && sku.toLowerCase().contains(searchQuery);
+    });
+
+    return customerNameMatch || orderIdMatch || skuMatch;
+  }).toList();
 });
+
 
 final ordersByStatusProvider =
     Provider.family.autoDispose<AsyncValue<List<Order>>, String>((ref, status) {

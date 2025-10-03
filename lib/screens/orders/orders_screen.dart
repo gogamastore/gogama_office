@@ -23,7 +23,7 @@ class OrdersScreen extends ConsumerWidget {
         child: Column(
           children: [
             _buildHeader(textTheme),
-            _buildSearchBar(),
+            _buildSearchBar(ref), // MODIFIKASI: Mengirim ref
             _buildFiltersContainer(context, ref),
             Expanded(
               child: RefreshIndicator(
@@ -31,9 +31,12 @@ class OrdersScreen extends ConsumerWidget {
                 child: ordersAsyncValue.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, stack) => Center(child: Text('Terjadi Kesalahan: $err')),
-                  data: (_) { 
+                  data: (_) {
                     if (filteredOrders.isEmpty) {
-                      return _buildEmptyState(ref.watch(orderFilterProvider));
+                      // MODIFIKASI: Mengambil status filter & query pencarian untuk empty state
+                      final activeFilter = ref.watch(orderFilterProvider);
+                      final searchQuery = ref.watch(orderSearchQueryProvider);
+                      return _buildEmptyState(activeFilter, searchQuery);
                     }
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -76,12 +79,16 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSearchBar() {
+  // MODIFIKASI: Menghubungkan search bar dengan provider
+  Widget _buildSearchBar(WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: TextField(
+        onChanged: (value) {
+          ref.read(orderSearchQueryProvider.notifier).state = value;
+        },
         decoration: InputDecoration(
-          hintText: 'Cari berdasarkan nama customer atau nomor pesanan...',
+          hintText: 'Cari nama, No. Pesanan, atau SKU...',
           prefixIcon: const Icon(Icons.search, color: Color(0xFF7F8C8D)),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           filled: true,
@@ -266,17 +273,16 @@ class OrdersScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _buildPaymentButton(context, ref, order), // Panggil widget tombol baru
+                    child: _buildPaymentButton(context, ref, order),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () async { // DIBUAT ASYNC
+                      onPressed: () async { 
                         String nextStatus = '';
                         if (order.status == 'pending') nextStatus = 'processing';
                         if (order.status == 'processing') nextStatus = 'shipped';
 
-                        // HANYA TAMPILKAN DIALOG UNTUK "PROSES PESANAN"
                         if (order.status == 'pending') {
                            final bool? confirmed = await showDialog<bool>(
                                 context: context,
@@ -302,7 +308,6 @@ class OrdersScreen extends ConsumerWidget {
                                 });
                             }
                         } else if (nextStatus.isNotEmpty) {
-                           // Untuk status lain, langsung eksekusi seperti sebelumnya
                            ref.read(orderServiceProvider).updateOrderStatus(order.id, nextStatus).then((_) {
                                 ref.read(orderProvider.notifier).refresh();
                            });
@@ -332,7 +337,6 @@ class OrdersScreen extends ConsumerWidget {
     final bool hasProof = order.paymentProofUrl != null && order.paymentProofUrl!.isNotEmpty;
 
     if (isUnpaid) {
-      // Tombol "Tandai Lunas" untuk status unpaid
       return TextButton.icon(
         onPressed: () async {
           final bool? confirmed = await showDialog(
@@ -375,7 +379,6 @@ class OrdersScreen extends ConsumerWidget {
         ),
       );
     } else {
-      // Tombol "Bukti Bayar" untuk status lainnya
       return TextButton.icon(
         onPressed: hasProof ? () async {
           final Uri url = Uri.parse(order.paymentProofUrl!);
@@ -386,7 +389,7 @@ class OrdersScreen extends ConsumerWidget {
               );
             }
           }
-        } : null, // onPressed: null akan menonaktifkan tombol
+        } : null,
         icon: Icon(Ionicons.receipt_outline, color: hasProof ? const Color(0xFF3498DB) : Colors.grey, size: 18),
         label: Text('Bukti Bayar', style: TextStyle(fontWeight: FontWeight.bold, color: hasProof ? const Color(0xFF3498DB) : Colors.grey)),
         style: TextButton.styleFrom(
@@ -397,18 +400,33 @@ class OrdersScreen extends ConsumerWidget {
     }
   }
 
-  Widget _buildEmptyState(String activeFilter) {
+  // MODIFIKASI: Menampilkan pesan yang berbeda jika sedang mencari
+  Widget _buildEmptyState(String activeFilter, String searchQuery) {
+    final bool isSearching = searchQuery.isNotEmpty;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Ionicons.file_tray_outline, size: 64, color: Color(0xFFBDC3C7)),
+            Icon(
+              isSearching ? Ionicons.search_outline : Ionicons.file_tray_outline,
+              size: 64,
+              color: const Color(0xFFBDC3C7),
+            ),
             const SizedBox(height: 16),
-            const Text('Tidak Ada Pesanan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50))),
+            Text(
+              isSearching ? 'Tidak Ada Hasil' : 'Tidak Ada Pesanan',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF2C3E50)),
+            ),
             const SizedBox(height: 8),
-            Text('Saat ini tidak ada pesanan untuk kategori \'${_getStatusText(activeFilter)}\'.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF7F8C8D))),
+            Text(
+              isSearching
+                  ? 'Tidak ditemukan pesanan yang cocok dengan "$searchQuery".'
+                  : 'Saat ini tidak ada pesanan untuk kategori \'${_getStatusText(activeFilter)}\'.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF7F8C8D)),
+            ),
           ],
         ),
       ),
