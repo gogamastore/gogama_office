@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ionicons/ionicons.dart';
 
 import '../../models/supplier.dart';
 import '../../providers/purchase_provider.dart';
@@ -17,10 +19,21 @@ class ProcessPurchaseScreen extends ConsumerStatefulWidget {
 class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
   final _formKey = GlobalKey<FormState>();
   Supplier? _selectedSupplier;
-  String _paymentMethod = 'cash'; // Default payment method
-
-  // Loading state for purchase process
+  String _paymentMethod = 'cash';
   bool _isProcessing = false;
+
+  Future<void> _showSupplierSelectionDialog() async {
+    final selected = await showDialog<Supplier>(
+      context: context,
+      builder: (context) => const _SupplierSelectionDialog(),
+    );
+
+    if (selected != null) {
+      setState(() {
+        _selectedSupplier = selected;
+      });
+    }
+  }
 
   Future<void> _processTransaction() async {
     if (!_formKey.currentState!.validate() || _isProcessing) {
@@ -44,7 +57,6 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
     });
 
     try {
-      // Panggil service baru yang menggunakan WriteBatch
       await PurchaseService().processPurchaseTransaction(
         items: cartItems,
         totalAmount: totalAmount,
@@ -52,14 +64,12 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
         supplier: _selectedSupplier,
       );
 
-      // Kosongkan keranjang setelah berhasil
       ref.read(purchaseCartProvider.notifier).clearCart();
 
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Transaksi pembelian berhasil diproses dan disimpan!')),
       );
       
-      // Kembali ke halaman sebelumnya
       navigator.pop();
 
     } catch (e) {
@@ -67,9 +77,11 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
         SnackBar(content: Text('Gagal memproses transaksi: $e')),
       );
     } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -119,8 +131,6 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
   }
 
   Widget _buildDetailsSection() {
-    final suppliersAsync = ref.watch(supplierProvider);
-
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -134,25 +144,18 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
 
             const Text('Supplier', style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
-            suppliersAsync.when(
-              data: (suppliers) => DropdownButtonFormField<Supplier>(
-                initialValue: _selectedSupplier,
-                hint: const Text('Pilih Supplier (Opsional)'),
-                items: suppliers.map((supplier) {
-                  return DropdownMenuItem<Supplier>(
-                    value: supplier,
-                    child: Text(supplier.name),
-                  );
-                }).toList(),
-                onChanged: (Supplier? newValue) {
-                  setState(() {
-                    _selectedSupplier = newValue;
-                  });
-                },
-                decoration: const InputDecoration(border: OutlineInputBorder()),
+            InkWell(
+              onTap: _showSupplierSelectionDialog,
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.arrow_drop_down),
+                ),
+                child: Text(
+                  _selectedSupplier?.name ?? 'Pilih Supplier (Opsional)',
+                  style: _selectedSupplier == null ? const TextStyle(color: Colors.black54) : null,
+                ),
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Text('Gagal memuat supplier: $err'),
             ),
             const SizedBox(height: 24),
 
@@ -243,6 +246,224 @@ class ProcessPurchaseScreenState extends ConsumerState<ProcessPurchaseScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// --- WIDGET DIALOG PEMILIHAN SUPPLIER ---
+class _SupplierSelectionDialog extends ConsumerStatefulWidget {
+  const _SupplierSelectionDialog();
+
+  @override
+  __SupplierSelectionDialogState createState() => __SupplierSelectionDialogState();
+}
+
+class __SupplierSelectionDialogState extends ConsumerState<_SupplierSelectionDialog> {
+  String _searchQuery = '';
+
+  Future<void> _showAddSupplierDialog() async {
+    final newSupplier = await showDialog<Supplier>(
+      context: context,
+      // Barrier dismissible false agar user harus menyelesaikan atau membatalkan
+      barrierDismissible: false, 
+      builder: (context) => _AddSupplierDialog(initialName: _searchQuery),
+    );
+
+    if (newSupplier != null && mounted) {
+      // Jika supplier baru berhasil dibuat, langsung pilih dan tutup dialog utama
+      Navigator.of(context).pop(newSupplier);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final suppliersAsync = ref.watch(supplierProvider);
+
+    return AlertDialog(
+      title: const Text('Pilih Supplier'),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16.0),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: const InputDecoration(
+                  hintText: 'Cari nama supplier...',
+                  prefixIcon: Icon(Ionicons.search),
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: suppliersAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, stack) => Center(child: Text('Gagal memuat supplier: $err')),
+                data: (suppliers) {
+                  final filteredSuppliers = suppliers.where((s) => s.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+                  if (filteredSuppliers.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Supplier tidak ditemukan.'),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            icon: const Icon(Ionicons.add),
+                            label: const Text('Tambah Supplier Baru'),
+                            onPressed: _showAddSupplierDialog,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: filteredSuppliers.length,
+                    itemBuilder: (context, index) {
+                      final supplier = filteredSuppliers[index];
+                      return ListTile(
+                        title: Text(supplier.name),
+                        subtitle: supplier.address != null ? Text(supplier.address!) : null,
+                        onTap: () => Navigator.of(context).pop(supplier),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+      ],
+    );
+  }
+}
+
+
+// --- WIDGET DIALOG TAMBAH SUPPLIER ---
+final addSupplierProvider = FutureProvider.family<void, Supplier>((ref, supplier) async {
+  await FirebaseFirestore.instance.collection('suppliers').add(supplier.toFirestore());
+});
+
+class _AddSupplierDialog extends ConsumerStatefulWidget {
+  final String initialName;
+  const _AddSupplierDialog({required this.initialName});
+
+  @override
+  __AddSupplierDialogState createState() => __AddSupplierDialogState();
+}
+
+class __AddSupplierDialogState extends ConsumerState<_AddSupplierDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameController;
+  late TextEditingController _addressController;
+  late TextEditingController _whatsappController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _addressController = TextEditingController();
+    _whatsappController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _addressController.dispose();
+    _whatsappController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveSupplier() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isSaving = true);
+
+      final newSupplier = Supplier(
+        id: '', // ID akan dibuat oleh Firestore
+        name: _nameController.text,
+        address: _addressController.text,
+        whatsapp: _whatsappController.text,
+        createdAt: Timestamp.now(),
+      );
+
+      try {
+        await ref.read(addSupplierProvider(newSupplier).future);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Supplier baru berhasil ditambahkan!')),
+          );
+          // Kirim supplier baru kembali ke dialog sebelumnya
+          Navigator.of(context).pop(newSupplier);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menyimpan supplier: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isSaving = false);
+        }
+      }
+    }
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tambah Supplier Baru'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Nama Supplier'),
+              validator: (value) => value == null || value.isEmpty ? 'Nama tidak boleh kosong' : null,
+              autofocus: true,
+            ),
+            TextFormField(
+              controller: _addressController,
+              decoration: const InputDecoration(labelText: 'Alamat (Opsional)'),
+            ),
+            TextFormField(
+              controller: _whatsappController,
+              decoration: const InputDecoration(labelText: 'No. WhatsApp (Opsional)'),
+              keyboardType: TextInputType.phone,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+        if (_isSaving)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: CircularProgressIndicator(),
+          )
+        else
+          ElevatedButton(
+            onPressed: _saveSupplier,
+            child: const Text('Simpan'),
+          ),
+      ],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../customers/customer_list_screen.dart';
 import 'banners_screen.dart';
 import 'promo_screen.dart';
 import 'staff_management_screen.dart';
@@ -29,6 +30,14 @@ class SettingsScreen extends StatelessWidget {
             title: 'Manajemen Supplier',
             subtitle: 'Kelola data supplier Anda',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SupplierManagementScreen())),
+          ),
+          // --- MENU BARU DITAMBAHKAN DI SINI ---
+          _buildMenuItem(
+            context,
+            icon: Icons.contacts_outlined,
+            title: 'Daftar Customer',
+            subtitle: 'Lihat dan kelola semua customer',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CustomerListScreen())),
           ),
           const Divider(),
           _buildMenuItem(

@@ -1,22 +1,38 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// A provider that fetches all product documents and returns a map of
-/// product ID to its corresponding image URL.
-///
-/// This allows UI components to easily look up an image URL for any product ID.
+import '../models/product.dart';
+
+// Ganti nama provider dan ubah menjadi family untuk efisiensi dan ketahanan
+final productProvider = FutureProvider.family<Product?, String>((ref, productId) async {
+  if (productId.isEmpty) {
+    return null;
+  }
+  try {
+    final doc = await FirebaseFirestore.instance.collection('products').doc(productId).get();
+    if (doc.exists) {
+      // --- PERBAIKAN DI SINI ---
+      // Constructor fromFirestore mengharapkan DocumentSnapshot, bukan data dan id terpisah.
+      return Product.fromFirestore(doc);
+    }
+    return null;
+  } catch (e) {
+    // Biarkan error dilempar agar bisa ditangani di UI
+    rethrow;
+  }
+});
+
+// Provider lama bisa dihapus atau tidak digunakan lagi
 final productImagesProvider = FutureProvider<Map<String, String>>((ref) async {
-  final firestore = FirebaseFirestore.instance;
-  final productsSnapshot = await firestore.collection('products').get();
-  
+  final productCollection = FirebaseFirestore.instance.collection('products');
+  final snapshot = await productCollection.get();
   final Map<String, String> imageMap = {};
-  for (var doc in productsSnapshot.docs) {
+  for (var doc in snapshot.docs) {
     final data = doc.data();
-    // Check if the document has an 'image' field and it's not empty.
-    if (data.containsKey('image') && (data['image' as Object] as String).isNotEmpty) {
-      imageMap[doc.id] = data['image' as Object] as String;
+    final imageUrl = data['image'] as String?;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      imageMap[doc.id] = imageUrl;
     }
   }
-  
   return imageMap;
 });

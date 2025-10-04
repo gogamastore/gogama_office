@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:ionicons/ionicons.dart';
 
 import '../../models/product.dart';
 import '../../models/product_category.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/product_provider.dart';
+import 'barcode_scanner_screen.dart';
 
 class EditProductScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -28,7 +30,6 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
   late TextEditingController _descriptionController;
 
   String? _selectedCategoryId;
-  // State untuk gambar baru, meniru add_product_screen.dart
   Uint8List? _imageBytes;
   String? _imageName;
   bool _isSaving = false;
@@ -52,7 +53,6 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     super.dispose();
   }
 
-  // Fungsi dari add_product_screen.dart
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: source, imageQuality: 80, maxWidth: 1024);
@@ -65,7 +65,6 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     }
   }
 
-  // Fungsi dari add_product_screen.dart
   Future<String?> _uploadImage(Uint8List imageBytes, String imageName) async {
     try {
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_$imageName';
@@ -82,18 +81,32 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     }
   }
 
+  // --- FUNGSI BARU UNTUK PINDAI BARCODE ---
+  Future<void> _scanBarcode() async {
+    final barcodeResult = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (context) => const BarcodeScannerScreen(),
+      ),
+    );
+
+    if (barcodeResult != null && barcodeResult.isNotEmpty && mounted) {
+      setState(() {
+        _skuController.text = barcodeResult;
+      });
+    }
+  }
+
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSaving = true);
 
-      String? imageUrl = widget.product.image; // Mulai dengan gambar yang ada
+      String? imageUrl = widget.product.image;
 
-      // Jika ada gambar baru, unggah dan perbarui URL
       if (_imageBytes != null && _imageName != null) {
         imageUrl = await _uploadImage(_imageBytes!, _imageName!);
         if (imageUrl == null) {
           setState(() => _isSaving = false);
-          return; // Hentikan jika unggah gagal
+          return;
         }
       }
 
@@ -106,7 +119,7 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
         price: newPrice,
         description: _descriptionController.text,
         categoryId: _selectedCategoryId,
-        image: imageUrl, // Gunakan URL baru atau yang lama
+        image: imageUrl,
       );
 
       try {
@@ -200,7 +213,18 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
               const SizedBox(height: 24),
               _buildTextField(_nameController, 'Nama Produk', 'Masukkan nama produk'),
               const SizedBox(height: 16),
-              _buildTextField(_skuController, 'SKU (Stock Keeping Unit)', 'Masukkan SKU', optional: true),
+              // --- PERUBAHAN DI SINI ---
+              _buildTextField(
+                _skuController, 
+                'SKU (Stock Keeping Unit)', 
+                'Masukkan SKU atau pindai barcode',
+                suffixIcon: IconButton(
+                  icon: const Icon(Ionicons.barcode_outline),
+                  onPressed: _scanBarcode,
+                  tooltip: 'Pindai Barcode',
+                ),
+              ),
+              // --- AKHIR PERUBAHAN ---
               const SizedBox(height: 16),
               _buildCategoryDropdown(),
               const SizedBox(height: 16),
@@ -214,11 +238,9 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     );
   }
 
-  // PERBAIKAN TOTAL: Menggunakan pola dari add_product_screen.dart
   Widget _buildImageEditor() {
     Widget imageWidget;
 
-    // Prioritas 1: Gambar baru yang dipilih
     if (_imageBytes != null) {
       imageWidget = Image.memory(
         _imageBytes!,
@@ -227,7 +249,6 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
         height: 120,
       );
     } 
-    // Prioritas 2: Gambar lama dari URL
     else if (widget.product.image != null && widget.product.image!.isNotEmpty) {
       imageWidget = Image.network(
         widget.product.image!,
@@ -238,7 +259,6 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
         errorBuilder: (context, error, stack) => const Icon(Icons.broken_image, size: 50, color: Color(0xFFBDC3C7)),
       );
     } 
-    // Prioritas 3: Placeholder
     else {
       imageWidget = const Icon(Icons.camera_alt, size: 50, color: Color(0xFFBDC3C7));
     }
@@ -301,7 +321,8 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, String hint, {bool optional = false, int maxLines = 1}) {
+  // --- PERUBAHAN DI SINI ---
+  Widget _buildTextField(TextEditingController controller, String label, String hint, {bool optional = false, int maxLines = 1, Widget? suffixIcon}) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
@@ -309,6 +330,7 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
         labelText: label + (optional ? ' (Opsional)' : ''),
         hintText: hint,
         border: const OutlineInputBorder(),
+        suffixIcon: suffixIcon, // Tambahkan ikon di sini
       ),
       validator: (value) {
         if (!optional && (value == null || value.isEmpty)) {
@@ -318,12 +340,12 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
       },
     );
   }
+  // --- AKHIR PERUBAHAN ---
 
   Widget _buildCategoryDropdown() {
     final categoriesAsync = ref.watch(categoriesStreamProvider);
     return categoriesAsync.when(
       data: (categories) {
-        // Pastikan selectedCategoryId valid
         if (_selectedCategoryId != null && !categories.any((c) => c.id == _selectedCategoryId)) {
            _selectedCategoryId = null;
         }

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
 
-import '../reports/purchase_report_screen.dart';
-import '../reports/stock_flow_report_screen.dart';
-import '../reports/sales_report_screen.dart';
+import '../reports/customer_report_screen.dart'; // <<< IMPORT HALAMAN BARU
+import '../reports/payable_report_screen.dart';
 import '../reports/product_sales_report_screen.dart';
+import '../reports/purchase_report_screen.dart';
 import '../reports/receivable_report_screen.dart';
-import '../reports/payable_report_screen.dart'; // <<< IMPORT HALAMAN BARU
+import '../reports/sales_report_screen.dart';
+import '../reports/stock_flow_report_screen.dart';
 
 // Model sederhana untuk data kartu laporan
 class ReportCardData {
@@ -28,34 +29,6 @@ class ReportsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fungsi untuk menampilkan placeholder saat laporan diklik
-    void navigateToPlaceholder(String reportName) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => Scaffold(
-            appBar: AppBar(title: Text(reportName)),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.hourglass_empty, size: 80, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Halaman $reportName\nakan segera hadir!',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     // Daftar laporan yang akan ditampilkan
     final List<ReportCardData> reports = [
       ReportCardData(
@@ -98,7 +71,6 @@ class ReportsScreen extends StatelessWidget {
           builder: (context) => const ReceivableReportScreen(),
         )),
       ),
-       // --- PERUBAHAN DI SINI ---
       ReportCardData(
         icon: Ionicons.receipt_outline,
         title: 'Laporan Utang Dagang',
@@ -107,13 +79,16 @@ class ReportsScreen extends StatelessWidget {
           builder: (context) => const PayableReportScreen(),
         )),
       ),
-      // --------------------------
+      // --- PERUBAHAN DI SINI: Navigasi ke Laporan Pelanggan ---
       ReportCardData(
         icon: Ionicons.people_outline,
         title: 'Laporan Pelanggan',
         description: 'Analisis data dan perilaku pelanggan.',
-        onView: () => navigateToPlaceholder('Laporan Pelanggan'),
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const CustomerReportScreen(), // Mengarah ke halaman baru
+        )),
       ),
+      // -----------------------------------------------------
     ];
 
     return Scaffold(
@@ -147,17 +122,15 @@ class ReportsScreen extends StatelessWidget {
                   ?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
-            // Grid untuk kartu laporan
             GridView.builder(
               shrinkWrap: true,
               physics:
-                  const NeverScrollableScrollPhysics(), // Tidak perlu scroll di dalam grid
+                  const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // 2 kolom
+                crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio:
-                    0.85, // Sesuaikan rasio agar kartu tidak terlalu tinggi
+                childAspectRatio: 0.85,
               ),
               itemCount: reports.length,
               itemBuilder: (context, index) {
@@ -212,7 +185,7 @@ class ReportCard extends StatelessWidget {
                   .bodySmall
                   ?.copyWith(color: Colors.grey[600]),
             ),
-            const Spacer(), // Mendorong tombol ke bawah
+            const Spacer(),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

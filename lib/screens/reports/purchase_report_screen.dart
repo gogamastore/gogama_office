@@ -7,7 +7,7 @@ import '../purchases/edit_purchase_screen.dart';
 
 import '../../models/purchase_transaction.dart';
 import '../../providers/purchase_report_provider.dart';
-import '../../providers/product_images_provider.dart';
+import '../../providers/product_images_provider.dart'; // Sekarang menggunakan productProvider dari file ini
 
 class PurchaseReportScreen extends ConsumerStatefulWidget {
   const PurchaseReportScreen({super.key});
@@ -170,7 +170,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 2.2,
+      childAspectRatio: 2.2, 
       children: [
         _buildMetricCard(
             'Total Transaksi', formatter.format(total), Ionicons.cash_outline),
@@ -379,7 +379,6 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
     );
   }
 
-  // --- PERBAIKAN UTAMA DI SINI ---
   void _showInvoiceDialog(BuildContext context, PurchaseTransaction transaction,
       NumberFormat formatter) {
     String getPaymentMethodDisplayName(String paymentMethod) {
@@ -398,191 +397,221 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return Consumer(
-          builder: (context, ref, child) {
-            // Tetap watch provider untuk mendapatkan datanya
-            final productImagesAsync = ref.watch(productImagesProvider);
-
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: ConstrainedBox(
-                constraints:
-                    const BoxConstraints(maxHeight: 600, maxWidth: 600),
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('Faktur Pembelian',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                          Text('#${transaction.id}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                      color: Colors.grey,
-                                      overflow: TextOverflow.ellipsis)),
-                          const SizedBox(height: 16),
-                          Text(
-                              'Tanggal: ${DateFormat('dd MMMM yyyy').format(transaction.date)}'),
-                          Text('Supplier: ${transaction.supplierName}'),
-                          const Divider(height: 24),
-                          Text('Rincian Produk Dibeli',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          // Hapus .when dan gunakan data secara langsung
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: DataTable(
-                                  columnSpacing: 10,
-                                  horizontalMargin: 10,
-                                  columns: const [
-                                    DataColumn(label: Text('Produk')),
-                                    DataColumn(
-                                        label: Text('Jml'), numeric: true),
-                                    DataColumn(
-                                        label: Text('Harga'), numeric: true),
-                                    DataColumn(
-                                        label: Text('Subtotal'),
-                                        numeric: true),
-                                  ],
-                                  rows: transaction.items.map((item) {
-                                    // Ambil data gambar dari hasil provider
-                                    final imageUrl = productImagesAsync.asData?.value[item.productId];
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          SizedBox(
-                                            width: 180,
-                                            child: Row(
-                                              children: [
-                                                // Logika gambar tetap sama, errorBuilder akan menangani kegagalan
-                                                if (imageUrl != null &&
-                                                    imageUrl.isNotEmpty)
-                                                  Image.network(imageUrl,
-                                                      width: 37,
-                                                      height: 37,
-                                                      fit: BoxFit.cover,
-                                                      errorBuilder: (c, e,
-                                                              s) =>
-                                                          const Icon(
-                                                              Ionicons
-                                                                  .image_outline,
-                                                              size: 37))
-                                                else
-                                                  Container(
-                                                      width: 37,
-                                                      height: 37,
-                                                      color: Colors
-                                                          .grey.shade200,
-                                                      child: const Icon(Ionicons
-                                                          .image_outline)),
-                                                const SizedBox(width: 8),
-                                                Flexible(
-                                                    child: Text(
-                                                        item.productName,
-                                                        style:
-                                                            const TextStyle(
-                                                                fontSize: 10),
-                                                        maxLines: 2,
-                                                        overflow: TextOverflow
-                                                            .ellipsis)),
-                                              ],
+        // Hapus Consumer di sini karena akan kita gunakan di dalam baris
+        return Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(maxHeight: 600, maxWidth: 600),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Faktur Pembelian',
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      Text('#${transaction.id}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color: Colors.grey,
+                                  overflow: TextOverflow.ellipsis)),
+                      const SizedBox(height: 16),
+                      Text(
+                          'Tanggal: ${DateFormat('dd MMMM yyyy').format(transaction.date)}'),
+                      Text('Supplier: ${transaction.supplierName}'),
+                      const Divider(height: 24),
+                      Text('Rincian Produk Dibeli',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              columnSpacing: 10,
+                              horizontalMargin: 10,
+                              columns: const [
+                                DataColumn(label: Text('Produk')),
+                                DataColumn(
+                                    label: Text('Jml'), numeric: true),
+                                DataColumn(
+                                    label: Text('Harga'), numeric: true),
+                                DataColumn(
+                                    label: Text('Subtotal'),
+                                    numeric: true),
+                              ],
+                              rows: transaction.items.map((item) {
+                                // Setiap baris sekarang adalah Consumer
+                                return DataRow(
+                                  cells: [
+                                    DataCell(
+                                      SizedBox(
+                                        width: 180,
+                                        child: Row(
+                                          children: [
+                                            // --- INTI PERBAIKAN ---
+                                            Consumer(
+                                              builder: (context, ref, _) {
+                                                final productAsync = ref.watch(productProvider(item.productId));
+                                                return productAsync.when(
+                                                  loading: () => const SizedBox(
+                                                    width: 37,
+                                                    height: 37,
+                                                    child: Center(
+                                                      child: Padding(
+                                                        padding: EdgeInsets.all(8.0),
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  error: (e, s) => Container(
+                                                    width: 37,
+                                                    height: 37,
+                                                    color: Colors.grey.shade200,
+                                                    child: const Icon(Ionicons.alert_circle_outline, color: Colors.red),
+                                                  ),
+                                                  data: (product) {
+                                                    final imageUrl = product?.image;
+                                                    if (imageUrl != null && imageUrl.isNotEmpty) {
+                                                      return Image.network(
+                                                        imageUrl,
+                                                        width: 37,
+                                                        height: 37,
+                                                        fit: BoxFit.cover,
+                                                        loadingBuilder: (context, child, progress) {
+                                                          if (progress == null) return child;
+                                                          return const SizedBox(
+                                                            width: 37,
+                                                            height: 37,
+                                                            child: Center(
+                                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                                            ),
+                                                          );
+                                                        },
+                                                        errorBuilder: (c, e, s) => Container(
+                                                          width: 37,
+                                                          height: 37,
+                                                          color: Colors.grey.shade200,
+                                                          child: const Icon(Ionicons.image_outline),
+                                                        ),
+                                                      );
+                                                    } else {
+                                                      return Container(
+                                                        width: 37,
+                                                        height: 37,
+                                                        color: Colors.grey.shade200,
+                                                        child: const Icon(Ionicons.image_outline),
+                                                      );
+                                                    }
+                                                  },
+                                                );
+                                              },
                                             ),
-                                          ),
+                                            // --- AKHIR PERBAIKAN ---
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                                child: Text(
+                                                    item.productName,
+                                                    style:
+                                                        const TextStyle(
+                                                            fontSize: 10),
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow
+                                                        .ellipsis)),
+                                          ],
                                         ),
-                                        DataCell(Text(
-                                            item.quantity.toString(),
-                                            style: const TextStyle(
-                                                fontSize: 10))),
-                                        DataCell(Text(
-                                            formatter
-                                                .format(item.purchasePrice),
-                                            style: const TextStyle(
-                                                fontSize: 10))),
-                                        DataCell(Text(
-                                            formatter.format(item.quantity *
-                                                item.purchasePrice),
-                                            style: const TextStyle(
-                                                fontSize: 10))),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
+                                      ),
+                                    ),
+                                    DataCell(Text(
+                                        item.quantity.toString(),
+                                        style: const TextStyle(
+                                            fontSize: 10))),
+                                    DataCell(Text(
+                                        formatter
+                                            .format(item.purchasePrice),
+                                        style: const TextStyle(
+                                            fontSize: 10))),
+                                    DataCell(Text(
+                                        formatter.format(item.quantity *
+                                            item.purchasePrice),
+                                        style: const TextStyle(
+                                            fontSize: 10))),
+                                  ],
+                                );
+                              }).toList(),
                             ),
                           ),
-                          const Divider(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                  'Metode: ${getPaymentMethodDisplayName(transaction.paymentMethod)}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                  overflow: TextOverflow.ellipsis),
-                              Flexible(
-                                  child: Text(
-                                      'Total: ${formatter.format(transaction.totalAmount)}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.bold),
-                                      overflow: TextOverflow.ellipsis)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton.icon(
-                                  onPressed: () {},
-                                  icon: const Icon(Ionicons.print_outline,
-                                      size: 16),
-                                  label: const Text('Download')),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    Navigator.of(context)
-                                        .push(MaterialPageRoute(
-                                      builder: (context) => EditPurchaseScreen(
-                                          transaction: transaction),
-                                    ));
-                                  },
-                                  icon: const Icon(Ionicons.create_outline,
-                                      size: 16),
-                                  label: const Text('Edit')),
-                            ],
-                          ),
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                              'Metode: ${getPaymentMethodDisplayName(transaction.paymentMethod)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                              overflow: TextOverflow.ellipsis),
+                          Flexible(
+                              child: Text(
+                                  'Total: ${formatter.format(transaction.totalAmount)}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
+                                          fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis)),
                         ],
                       ),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.of(context).pop(),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton.icon(
+                              onPressed: () {},
+                              icon: const Icon(Ionicons.print_outline,
+                                  size: 16),
+                              label: const Text('Download')),
+                          const SizedBox(width: 8),
+                          TextButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pop(); 
+                                Navigator.of(context)
+                                    .push(MaterialPageRoute(
+                                  builder: (context) => EditPurchaseScreen(
+                                      transaction: transaction),
+                                ));
+                              },
+                              icon: const Icon(Ionicons.create_outline,
+                                  size: 16),
+                              label: const Text('Edit')),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );

@@ -1,4 +1,3 @@
-// lib/models/supplier.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Supplier {
@@ -20,10 +19,20 @@ class Supplier {
     final data = doc.data() as Map<String, dynamic>;
     return Supplier(
       id: doc.id,
-      name: data['name'],
-      whatsapp: data['whatsapp'],
-      address: data['address'],
-      createdAt: data['createdAt'],
+      name: data['name'] ?? '',
+      whatsapp: data['whatsapp'] as String?,
+      address: data['address'] as String?,
+      createdAt: data['createdAt'] ?? Timestamp.now(),
     );
+  }
+
+  // --- METODE BARU DITAMBAHKAN DI SINI ---
+  Map<String, dynamic> toFirestore() {
+    return {
+      'name': name,
+      'address': address,
+      'whatsapp': whatsapp,
+      'createdAt': createdAt,
+    };
   }
 }

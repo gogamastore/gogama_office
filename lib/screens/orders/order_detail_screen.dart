@@ -6,10 +6,11 @@ import 'package:ionicons/ionicons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/order.dart';
+import '../../models/order_product.dart'; // <<< PENTING: Impor model OrderProduct
 import '../../providers/order_provider.dart';
 import '../../utils/formatter.dart';
 import './edit_order_screen.dart';
-import './pos_validation_screen.dart'; // <<< DIGANTI: Impor layar POS baru
+import './pos_validation_screen.dart';
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -73,7 +74,7 @@ class OrderDetailScreen extends ConsumerWidget {
         const SizedBox(height: 12),
         _buildCustomerCard(order),
         const SizedBox(height: 12),
-        _buildProductsCard(context, order), // Pass context
+        _buildProductsCard(context, order),
         const SizedBox(height: 12),
         _buildPaymentInfoCard(context, order),
         const SizedBox(height: 12),
@@ -86,7 +87,6 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- PERUBAHAN DI SINI ---
   Widget _buildValidateButton(BuildContext context, Order order) {
     if (order.status == 'pending') {
       return ElevatedButton.icon(
@@ -94,7 +94,6 @@ class OrderDetailScreen extends ConsumerWidget {
         label: const Text('Validasi Pesanan',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         onPressed: () {
-          // Mengarahkan ke layar validasi POS baru
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => PosValidationScreen(order: order),
@@ -112,7 +111,6 @@ class OrderDetailScreen extends ConsumerWidget {
     return const SizedBox.shrink();
   }
 
-  // DIPERBARUI: Menambahkan tampilan untuk Kasir
   Widget _buildInfoCard(Order order) {
     return _buildCard(
       children: [
@@ -157,7 +155,6 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
           ],
         ),
-        // BARU: Tampilkan info kasir jika ada
         if (order.kasir != null && order.kasir!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 12.0),
@@ -186,6 +183,7 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
+  // --- PERBAIKAN DI SINI ---
   Widget _buildCustomerCard(Order order) {
     return _buildCard(
       children: [
@@ -193,6 +191,9 @@ class OrderDetailScreen extends ConsumerWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
         _buildCustomerDetailRow(Ionicons.person_outline, order.customer),
+        // Gunakan order.customerPhone dan cek null/kosong
+        if (order.customerPhone.isNotEmpty)
+          _buildCustomerDetailRow(Ionicons.logo_whatsapp, order.customerPhone),
         _buildCustomerDetailRow(
             Ionicons.location_outline, order.customerAddress,
             isLast: true),
@@ -202,6 +203,8 @@ class OrderDetailScreen extends ConsumerWidget {
 
   Widget _buildCustomerDetailRow(IconData icon, String text,
       {bool isLast = false}) {
+    // Tambahkan pengecekan jika teks kosong
+    if (text.isEmpty || text == '-') return const SizedBox.shrink();
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 12.0),
       child: Row(
@@ -214,21 +217,29 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
+  // --- PERBAIKAN DI SINI ---
   Widget _buildProductsCard(BuildContext context, Order order) {
     final formatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    
+    // Gunakan tipe yang benar: OrderProduct
+    final sortedProducts = List<OrderProduct>.from(order.products);
+    // Lakukan sort dengan aman
+    sortedProducts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
     final subtotal =
-        order.products.fold(0.0, (sum, p) => sum + (p.price * p.quantity));
+        sortedProducts.fold(0.0, (sum, p) => sum + (p.price * p.quantity));
 
     return _buildCard(
       children: [
         const Text('Produk Dipesan',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
-        ...order.products.map((p) => ListTile(
+        ...sortedProducts.map((p) => ListTile(
               contentPadding: EdgeInsets.zero,
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
+                // Akses properti dengan aman (?.) dan beri nilai default
                 child: CachedNetworkImage(
                   imageUrl: p.imageUrl ?? '',
                   width: 50,
