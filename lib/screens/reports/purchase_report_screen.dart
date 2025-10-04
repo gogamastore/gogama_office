@@ -24,7 +24,6 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    // Default filter to the last 30 days
     _selectedDateRange = DateTimeRange(
         start: now.subtract(const Duration(days: 30)), end: now);
   }
@@ -171,7 +170,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 2.2, // Memberikan lebih banyak ruang vertikal
+      childAspectRatio: 2.2,
       children: [
         _buildMetricCard(
             'Total Transaksi', formatter.format(total), Ionicons.cash_outline),
@@ -380,6 +379,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
     );
   }
 
+  // --- PERBAIKAN UTAMA DI SINI ---
   void _showInvoiceDialog(BuildContext context, PurchaseTransaction transaction,
       NumberFormat formatter) {
     String getPaymentMethodDisplayName(String paymentMethod) {
@@ -400,7 +400,9 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
       builder: (context) {
         return Consumer(
           builder: (context, ref, child) {
+            // Tetap watch provider untuk mendapatkan datanya
             final productImagesAsync = ref.watch(productImagesProvider);
+
             return Dialog(
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -438,93 +440,88 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                                   .titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
+                          // Hapus .when dan gunakan data secara langsung
                           Expanded(
-                            child: productImagesAsync.when(
-                              loading: () => const Center(
-                                  child: CircularProgressIndicator()),
-                              error: (e, s) => const Center(
-                                  child: Text('Gagal memuat gambar')),
-                              data: (images) {
-                                return SingleChildScrollView(
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: DataTable(
-                                      columnSpacing: 10,
-                                      horizontalMargin: 10,
-                                      columns: const [
-                                        DataColumn(label: Text('Produk')),
-                                        DataColumn(
-                                            label: Text('Jml'), numeric: true),
-                                        DataColumn(
-                                            label: Text('Harga'), numeric: true),
-                                        DataColumn(
-                                            label: Text('Subtotal'),
-                                            numeric: true),
-                                      ],
-                                      rows: transaction.items.map((item) {
-                                        final imageUrl = images[item.productId];
-                                        return DataRow(
-                                          cells: [
-                                            DataCell(
-                                              SizedBox(
-                                                width: 180,
-                                                child: Row(
-                                                  children: [
-                                                    if (imageUrl != null &&
-                                                        imageUrl.isNotEmpty)
-                                                      Image.network(imageUrl,
-                                                          width: 37,
-                                                          height: 37,
-                                                          fit: BoxFit.cover,
-                                                          errorBuilder: (c, e,
-                                                                  s) =>
-                                                              const Icon(
-                                                                  Ionicons
-                                                                      .image_outline,
-                                                                  size: 37))
-                                                    else
-                                                      Container(
-                                                          width: 37,
-                                                          height: 37,
-                                                          color: Colors
-                                                              .grey.shade200,
-                                                          child: const Icon(Ionicons
-                                                              .image_outline)),
-                                                    const SizedBox(width: 8),
-                                                    Flexible(
-                                                        child: Text(
-                                                            item.productName,
-                                                            style:
-                                                                const TextStyle(
-                                                                    fontSize: 10),
-                                                            maxLines: 2,
-                                                            overflow: TextOverflow
-                                                                .ellipsis)),
-                                                  ],
-                                                ),
-                                              ),
+                            child: SingleChildScrollView(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  columnSpacing: 10,
+                                  horizontalMargin: 10,
+                                  columns: const [
+                                    DataColumn(label: Text('Produk')),
+                                    DataColumn(
+                                        label: Text('Jml'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Harga'), numeric: true),
+                                    DataColumn(
+                                        label: Text('Subtotal'),
+                                        numeric: true),
+                                  ],
+                                  rows: transaction.items.map((item) {
+                                    // Ambil data gambar dari hasil provider
+                                    final imageUrl = productImagesAsync.asData?.value[item.productId];
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(
+                                          SizedBox(
+                                            width: 180,
+                                            child: Row(
+                                              children: [
+                                                // Logika gambar tetap sama, errorBuilder akan menangani kegagalan
+                                                if (imageUrl != null &&
+                                                    imageUrl.isNotEmpty)
+                                                  Image.network(imageUrl,
+                                                      width: 37,
+                                                      height: 37,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (c, e,
+                                                              s) =>
+                                                          const Icon(
+                                                              Ionicons
+                                                                  .image_outline,
+                                                              size: 37))
+                                                else
+                                                  Container(
+                                                      width: 37,
+                                                      height: 37,
+                                                      color: Colors
+                                                          .grey.shade200,
+                                                      child: const Icon(Ionicons
+                                                          .image_outline)),
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                    child: Text(
+                                                        item.productName,
+                                                        style:
+                                                            const TextStyle(
+                                                                fontSize: 10),
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow
+                                                            .ellipsis)),
+                                              ],
                                             ),
-                                            DataCell(Text(
-                                                item.quantity.toString(),
-                                                style: const TextStyle(
-                                                    fontSize: 10))),
-                                            DataCell(Text(
-                                                formatter
-                                                    .format(item.purchasePrice),
-                                                style: const TextStyle(
-                                                    fontSize: 10))),
-                                            DataCell(Text(
-                                                formatter.format(item.quantity *
-                                                    item.purchasePrice),
-                                                style: const TextStyle(
-                                                    fontSize: 10))),
-                                          ],
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ),
-                                );
-                              },
+                                          ),
+                                        ),
+                                        DataCell(Text(
+                                            item.quantity.toString(),
+                                            style: const TextStyle(
+                                                fontSize: 10))),
+                                        DataCell(Text(
+                                            formatter
+                                                .format(item.purchasePrice),
+                                            style: const TextStyle(
+                                                fontSize: 10))),
+                                        DataCell(Text(
+                                            formatter.format(item.quantity *
+                                                item.purchasePrice),
+                                            style: const TextStyle(
+                                                fontSize: 10))),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
                             ),
                           ),
                           const Divider(height: 24),
@@ -558,7 +555,7 @@ class _PurchaseReportScreenState extends ConsumerState<PurchaseReportScreen> {
                               const SizedBox(width: 8),
                               TextButton.icon(
                                   onPressed: () {
-                                    Navigator.of(context).pop(); // Tutup dialog
+                                    Navigator.of(context).pop();
                                     Navigator.of(context)
                                         .push(MaterialPageRoute(
                                       builder: (context) => EditPurchaseScreen(
