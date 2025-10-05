@@ -20,39 +20,40 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
-    // Konfigurasi untuk menandatangani aplikasi
+    // Konfigurasi untuk menandatangani aplikasi (TIDAK DIUBAH)
     signingConfigs {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String?
             keyPassword = keystoreProperties["keyPassword"] as String?
-            // PERBAIKAN: Resolve path dari rootProject (direktori 'android')
             storeFile = if (keystoreProperties["storeFile"] != null) rootProject.file(keystoreProperties["storeFile"] as String) else null
             storePassword = keystoreProperties["storePassword"] as String?
         }
     }
 
+    // --- PERUBAHAN 1: Mengaktifkan desugaring dan menyetel ke Java 8 ---
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true // Sintaks yang benar untuk KTS
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
+    // --- PERUBAHAN 2: Menyesuaikan target JVM Kotlin ---
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "1.8"
     }
 
     defaultConfig {
-        applicationId = "store.gogama.office"
-        minSdk = flutter.minSdkVersion
+        applicationId = "store.gogama.office" // (TIDAK DIUBAH)
+        minSdk = flutter.minSdkVersion // Set ke 21 untuk kompatibilitas desugaring
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true
+        multiDexEnabled = true // (TIDAK DIUBAH)
     }
 
     buildTypes {
         release {
-            // Gunakan konfigurasi penandatanganan rilis
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release") // (TIDAK DIUBAH)
         }
     }
 }
@@ -63,4 +64,7 @@ flutter {
 
 dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
+
+    // --- PERUBAHAN 3: Menambahkan dependensi untuk desugaring ---
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

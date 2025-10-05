@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'dart:io';
+import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/order.dart';
 import '../../models/order_item.dart';
@@ -133,9 +136,9 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     try {
       final success = await ref.read(orderProvider.notifier).updateOrder(
             widget.order.id,
-            _items, 
+            _items,
             double.tryParse(_shippingFeeController.text) ?? 0.0,
-            _subtotal, // DITAMBAHKAN
+            _subtotal,
             _total,
           );
 
@@ -155,11 +158,38 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
           ),
         );
       }
+    } on SocketException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan, koneksi internet error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan, koneksi internet error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } on FirebaseException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan, unable to update database'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Terjadi error: $e'),
+            content: Text('Terjadi error fungsional aplikasi: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -249,7 +279,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
           decimalDigits: 0,
         );
         return _OrderItemCard(
-          item: item, 
+          item: item,
           currencyFormatter: currencyFormatter,
           onTap: () => _editItem(index),
           onRemove: () => _removeProduct(index),

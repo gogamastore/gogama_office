@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/order.dart';
 import '../../models/order_item.dart';
@@ -49,12 +52,11 @@ class _ValidatedOrderSummaryScreenState
       final orderId = widget.originalOrder.id;
       final orderNotifier = ref.read(orderProvider.notifier);
 
-      // PERBAIKAN: Menambahkan argumen newSubtotal yang hilang
       final success = await orderNotifier.updateOrder(
         orderId,
         widget.validatedItems,
         shippingCost,
-        newSubtotal, // Ditambahkan
+        newSubtotal, 
         newGrandTotal,
         validatorName: _selectedAdminName,
       );
@@ -74,13 +76,45 @@ class _ValidatedOrderSummaryScreenState
           );
           navigator.popUntil((route) => route.isFirst);
         }
-      } else {
-        throw Exception('Gagal memperbarui detail pesanan.');
+      } else if (mounted) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Gagal memproses pesanan. Silakan coba lagi.'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-    } catch (error) {
+    } on SocketException {
+        if (mounted) {
+            scaffoldMessenger.showSnackBar(
+                const SnackBar(
+                    content: Text('Gagal menyimpan, koneksi internet error'),
+                    backgroundColor: Colors.red,
+                ),
+            );
+        }
+    } on TimeoutException {
+        if (mounted) {
+            scaffoldMessenger.showSnackBar(
+                const SnackBar(
+                    content: Text('Gagal menyimpan, koneksi internet error'),
+                    backgroundColor: Colors.red,
+                ),
+            );
+        }
+    } on FirebaseException {
+        if (mounted) {
+            scaffoldMessenger.showSnackBar(
+                const SnackBar(
+                    content: Text('Gagal menyimpan, unable to update database'),
+                    backgroundColor: Colors.red,
+                ),
+            );
+        }
+    } catch (e) {
       if (mounted) {
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Terjadi error: $error'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Terjadi error fungsional aplikasi: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -165,8 +199,6 @@ class _ValidatedOrderSummaryScreenState
               const SizedBox(height: 24),
               adminUsersAsyncValue.when(
                 data: (admins) => DropdownButtonFormField<String>(
-                  // PERBAIKAN: Menggunakan `value` karena ini adalah controlled component.
-                  // Peringatan linter mungkin tidak akurat dalam konteks ini.
                   value: _selectedAdminName,
                   hint: const Text('Pilih nama...'),
                   decoration: const InputDecoration(
