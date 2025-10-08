@@ -79,6 +79,28 @@ class Order {
     this.kasir, // <-- BARU: Ditambahkan di konstruktor
   });
 
+  Map<String, dynamic> toFirestore() {
+    return {
+      'customer': customer,
+      'customerDetails': {
+        'name': customer,
+        'whatsapp': customerPhone,
+        'address': customerAddress,
+      },
+      'date': date,
+      'status': status,
+      'total': total,
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
+      'shippingMethod': shippingMethod,
+      'shippingFee': shippingFee,
+      'products': products.map((p) => p.toJson()).toList(),
+      'productIds': products.map((p) => p.productId).toList(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
   factory Order.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     Map<String, dynamic> customerDetails =

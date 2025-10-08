@@ -108,30 +108,28 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
 
   Future<void> generateReport() async {
     if (state.selectedDateRange == null) {
-      // Atur filter default ke hari ini jika belum ada
       setFilter(SalesReportFilterType.today);
-      return; // setFilter akan memanggil generateReport lagi
+      return; 
     }
 
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final startDate = Timestamp.fromDate(state.selectedDateRange!.start);
-      final endDate = Timestamp.fromDate(state.selectedDateRange!.end.add(const Duration(days: 1)));
+      final start = state.selectedDateRange!.start;
+      final end = state.selectedDateRange!.end;
+      
+      final startDate = Timestamp.fromDate(DateTime(start.year, start.month, start.day, 0, 0, 0));
+      final endDate = Timestamp.fromDate(DateTime(end.year, end.month, end.day, 23, 59, 59));
 
       final ordersSnapshot = await _firestore
           .collection('orders')
-          .where('date', isGreaterThanOrEqualTo: startDate)
-          .where('date', isLessThan: endDate)
-          .orderBy('date', descending: true)
+          .where('status', whereIn: ['processing', 'Processing'])
+          .where('updatedAt', isGreaterThanOrEqualTo: startDate)
+          .where('updatedAt', isLessThanOrEqualTo: endDate)
+          .orderBy('updatedAt', descending: true)
           .get();
 
-      final relevantDocs = ordersSnapshot.docs.where((doc) {
-        final data = doc.data();
-        final status = data['status'];
-        if (status is! String) return false;
-        return ['processing', 'shipped', 'delivered'].contains(status.toLowerCase());
-      }).toList();
+      final relevantDocs = ordersSnapshot.docs;
 
       if (relevantDocs.isEmpty) {
         state = state.copyWith(reportData: SalesReportData(totalRevenue: 0, totalCogs: 0, orders: []), isLoading: false);
@@ -158,6 +156,9 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
           double orderRevenue = 0;
           double orderCogs = 0;
 
+          // Fallback to 'date' if 'updatedAt' is missing for older documents
+          final orderTimestamp = orderData['updatedAt'] as Timestamp? ?? orderData['date'] as Timestamp;
+
           for (var item in (orderData['products'] as List<dynamic>)) {
               final productId = item['productId'] as String;
               final productDoc = productDetails[productId];
@@ -174,7 +175,7 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
           
           salesOrders.add(SalesReportOrder(
             orderId: orderDoc.id, 
-            orderDate: orderData['date'] as Timestamp, 
+            orderDate: orderTimestamp, 
             customerName: customerName, 
             customerId: customerId, 
             status: orderData['status'] as String, 
@@ -185,7 +186,7 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
           ));
           
           totalRevenue += orderRevenue;
-          totalCogs += orderCogs;
+          totalCogs += orderCogs; // <--- INI DIA PERBAIKANNYA
 
         } catch (e, stackTrace) {
           developer.log(
@@ -201,14 +202,28 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
 
       state = state.copyWith(reportData: SalesReportData(totalRevenue: totalRevenue, totalCogs: totalCogs, orders: salesOrders), isLoading: false, errorMessage: null);
 
-    } catch (e, stackTrace) {
-       developer.log(
-        'Critical error in generateReport',
-        name: 'sales_report_provider',
-        level: 1000,
-        error: e,
-        stackTrace: stackTrace,
-      );
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' && e.message != null) {
+        final urlMatch = RegExp(r'(https://console.firebase.google.com/project/[^/]+/database/[^/]+/indexes[?]create_composite=.*?)').firstMatch(e.message!);
+        if (urlMatch != null) {
+          final url = urlMatch.group(1)!;
+          developer.log(
+            '\n========================================\n'
+            'SALIN LINK UNTUK MEMBUAT INDEX FIRESTORE:\n\n'
+            '$url\n\n'
+            '========================================\n',
+            name: 'Firestore Index Trap',
+            level: 1200,
+          );
+          state = state.copyWith(errorMessage: "INDEX DIPERLUKAN: Salin link dari log untuk membuat index Firestore.", isLoading: false);
+          return;
+        }
+      }
+      // Handle other Firebase errors
+      developer.log('Firebase error: ${e.toString()}', name: 'SalesReport', level: 1000);
+      state = state.copyWith(errorMessage: "Error Firebase: ${e.message}", isLoading: false);
+    } catch (e) {
+       developer.log('Generic error: ${e.toString()}', name: 'SalesReport', level: 1000);
       state = state.copyWith(errorMessage: "Terjadi error kritis yang tidak terduga. Silakan coba lagi.", isLoading: false);
     }
   }

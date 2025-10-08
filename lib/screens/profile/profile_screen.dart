@@ -18,7 +18,7 @@ class ProfileScreen extends ConsumerWidget {
     final userData = ref.watch(userDataProvider);
     final authService = ref.read(authServiceProvider);
 
-    void _navigateToSettings(UserModel? user) {
+    void navigateToSettings(UserModel? user) {
       if (user != null &&
           (user.position == 'Admin' || user.position == 'Owner')) {
         Navigator.of(context).push(
@@ -102,7 +102,7 @@ class ProfileScreen extends ConsumerWidget {
                       title: 'Pengaturan Toko',
                       onTap: () {
                         final user = ref.read(userDataProvider).asData?.value;
-                        _navigateToSettings(user);
+                        navigateToSettings(user);
                       },
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),

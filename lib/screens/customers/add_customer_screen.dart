@@ -132,7 +132,7 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 decoration: const InputDecoration(
                   labelText: 'Role',
                   prefixIcon: Icon(Ionicons.ribbon_outline),

@@ -8,41 +8,37 @@ class DashboardService {
 
   Future<DashboardData> getDashboardData() async {
     final now = DateTime.now();
-    final startOfToday = DateTime(now.year, now.month, now.day);
-    final endOfToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    final startOfToday = firestore.Timestamp.fromDate(DateTime(now.year, now.month, now.day, 0, 0, 0));
+    final endOfToday = firestore.Timestamp.fromDate(DateTime(now.year, now.month, now.day, 23, 59, 59));
 
-    final todaysOrdersQuery = _db
+    // 1. Query untuk Total Revenue (status processing/Processing, filter by updatedAt)
+    final revenueOrdersQuery = _db
         .collection('orders')
-        .where('status', whereIn: [
-          'pending',
-          'Pending',
-          'Processing',
-          'processing',
-          'shipped',
-          'Shipped',
-          'delivered',
-          'Delivered'
-        ])
-        .where('date', isGreaterThanOrEqualTo: startOfToday)
-        .where('date', isLessThanOrEqualTo: endOfToday);
-    final todaysOrdersSnapshot = await todaysOrdersQuery.get();
+        .where('status', whereIn: ['processing', 'Processing'])
+        .where('updatedAt', isGreaterThanOrEqualTo: startOfToday)
+        .where('updatedAt', isLessThanOrEqualTo: endOfToday);
+    final revenueOrdersSnapshot = await revenueOrdersQuery.get();
 
     double totalRevenueToday = 0;
-    for (var doc in todaysOrdersSnapshot.docs) {
+    for (var doc in revenueOrdersSnapshot.docs) {
       final data = doc.data();
-      final dynamic totalValue = data['total'];
       double orderTotal = 0;
-
-      if (totalValue is String) {
-        final totalString = totalValue.replaceAll(RegExp(r'[^0-9]'), '');
-        orderTotal = double.tryParse(totalString) ?? 0.0;
-      } else if (totalValue is num) {
-        orderTotal = totalValue.toDouble();
+      for (var product in (data['products'] as List<dynamic>)) {
+        orderTotal += (product['price'] as num).toDouble() * (product['quantity'] as num).toInt();
       }
       totalRevenueToday += orderTotal;
     }
-    final int totalSalesToday = todaysOrdersSnapshot.docs.length;
 
+    // 2. Query untuk Sales (status pending/processing, filter by createdAt/date)
+    final salesOrdersQuery = _db
+        .collection('orders')
+        .where('status', whereIn: ['pending', 'Pending', 'processing', 'Processing'])
+        .where('date', isGreaterThanOrEqualTo: startOfToday)
+        .where('date', isLessThanOrEqualTo: endOfToday);
+    final salesOrdersSnapshot = await salesOrdersQuery.get();
+    final int totalSalesToday = salesOrdersSnapshot.docs.length;
+    
+    // --- Logika lain yang tidak berubah ---
     final oneMonthAgo = now.subtract(const Duration(days: 30));
     final newCustomersQuery = _db
         .collection('user')

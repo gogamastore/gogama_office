@@ -1,55 +1,39 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
-import 'dart:io';
-import 'dart:async';
-import 'package:firebase_core/firebase_core.dart';
 
+import '../../models/app_user.dart';
 import '../../models/order.dart';
 import '../../models/order_item.dart';
+import '../../models/order_product.dart';
 import '../../models/product.dart';
 import '../../providers/order_provider.dart';
+import '../customers/customer_list_screen.dart';
 import 'edit_order_item_dialog.dart';
 import 'select_product_screen.dart';
 
-class EditOrderScreen extends ConsumerStatefulWidget {
-  final Order order;
-
-  const EditOrderScreen({super.key, required this.order});
+class CreateOrderScreen extends ConsumerStatefulWidget {
+  const CreateOrderScreen({super.key});
 
   @override
-  ConsumerState<EditOrderScreen> createState() => _EditOrderScreenState();
+  ConsumerState<CreateOrderScreen> createState() => _CreateOrderScreenState();
 }
 
-class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
-  late List<OrderItem> _items;
+class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
+  final List<OrderItem> _items = [];
   late TextEditingController _shippingFeeController;
   double _subtotal = 0;
   double _total = 0;
   bool _isSaving = false;
+  AppUser? _selectedCustomer;
 
   @override
   void initState() {
     super.initState();
-    _items = widget.order.products.map((p) {
-      return OrderItem(
-        productId: p.productId,
-        name: p.name,
-        quantity: p.quantity,
-        price: p.price,
-        imageUrl: p.imageUrl,
-        sku: p.sku,
-      );
-    }).toList();
-
-    // --- PERUBAHAN: Mengurutkan daftar produk berdasarkan nama A-Z ---
-    _items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-
-    _shippingFeeController = TextEditingController(
-      text: (widget.order.shippingFee ?? 0).toStringAsFixed(0),
-    );
+    _shippingFeeController = TextEditingController(text: '0');
     _calculateTotals();
   }
 
@@ -62,7 +46,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   void _calculateTotals() {
     _subtotal = _items.fold(
       0.0,
-      (sum, item) => sum + (item.price * item.quantity),
+      (previousValue, item) => previousValue + (item.price * item.quantity),
     );
     final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
     setState(() {
@@ -110,7 +94,8 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
 
     if (selectedProduct != null) {
       setState(() {
-        final existingItemIndex = _items.indexWhere((item) => item.productId == selectedProduct.id);
+        final existingItemIndex =
+            _items.indexWhere((item) => item.productId == selectedProduct.id);
 
         if (existingItemIndex != -1) {
           final existingItem = _items[existingItemIndex];
@@ -133,23 +118,66 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
     }
   }
 
-  Future<void> _saveChanges() async {
+  void _selectCustomer() async {
+    final AppUser? selectedCustomer = await Navigator.push<AppUser>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CustomerListScreen(),
+      ),
+    );
+
+    if (selectedCustomer != null) {
+      setState(() {
+        _selectedCustomer = selectedCustomer;
+      });
+    }
+  }
+
+  Future<void> _createOrder() async {
     if (_isSaving) return;
+    if (_selectedCustomer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih customer terlebih dahulu.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
 
     try {
-      final success = await ref.read(orderProvider.notifier).updateOrder(
-            widget.order.id,
-            _items,
-            double.tryParse(_shippingFeeController.text) ?? 0.0,
-            _subtotal,
-            _total,
-          );
+      final newOrder = Order(
+        id: '', // Firestore will generate this
+        customer: _selectedCustomer!.name,
+        customerPhone: _selectedCustomer!.whatsapp ?? '',
+        customerAddress: _selectedCustomer!.address ?? '',
+        date: Timestamp.now(),
+        status: 'pending',
+        total: _total.toString(),
+        paymentMethod: 'bank_transfer',
+        paymentStatus: 'unpaid',
+        shippingMethod: 'pickup',
+        shippingFee: double.tryParse(_shippingFeeController.text) ?? 0.0,
+        products: _items
+            .map((item) => OrderProduct(
+                  productId: item.productId,
+                  name: item.name,
+                  quantity: item.quantity,
+                  price: item.price,
+                  sku: item.sku,
+                  imageUrl: item.imageUrl,
+                ))
+            .toList(),
+      );
+
+      final success =
+          await ref.read(orderProvider.notifier).createOrder(newOrder);
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Pesanan berhasil diperbarui!'),
+            content: Text('Pesanan berhasil dibuat!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -157,34 +185,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gagal memperbarui pesanan. Silakan coba lagi.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } on SocketException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menyimpan, koneksi internet error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } on TimeoutException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menyimpan, koneksi internet error'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } on FirebaseException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal menyimpan, unable to update database'),
+            content: Text('Gagal membuat pesanan. Silakan coba lagi.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -193,7 +194,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Terjadi error fungsional aplikasi: $e'),
+            content: Text('Terjadi error: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -209,7 +210,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit Pesanan #${widget.order.id.substring(0, 7)}...'),
+        title: const Text('Buat Pesanan'),
         actions: [
           if (_isSaving)
             const Padding(
@@ -225,8 +226,8 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
           else
             IconButton(
               icon: const Icon(Icons.check),
-              onPressed: _items.isNotEmpty ? _saveChanges : null,
-              tooltip: 'Simpan Perubahan',
+              onPressed: _items.isNotEmpty ? _createOrder : null,
+              tooltip: 'Buat Pesanan',
             ),
         ],
       ),
@@ -234,6 +235,24 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: ElevatedButton.icon(
+              onPressed: _selectCustomer,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: Text(
+                _selectedCustomer == null
+                    ? 'Pilih Customer'
+                    : 'Customer: ${_selectedCustomer!.name}',
+              ),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: ElevatedButton.icon(
               onPressed: _addProduct,
               icon: const Icon(Icons.add),
@@ -247,7 +266,9 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
             ),
           ),
           Expanded(
-            child: _items.isEmpty ? _buildEmptyState() : _buildProductListView(),
+            child: _items.isEmpty
+                ? _buildEmptyState()
+                : _buildProductListView(),
           ),
           _buildTotalsSection(),
         ],
@@ -326,7 +347,8 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Subtotal Produk', style: TextStyle(fontSize: 14)),
+                const Text('Subtotal Produk',
+                    style: TextStyle(fontSize: 14)),
                 Text(
                   formatter.format(_subtotal),
                   style: const TextStyle(

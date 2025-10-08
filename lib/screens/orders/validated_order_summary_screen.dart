@@ -199,7 +199,7 @@ class _ValidatedOrderSummaryScreenState
               const SizedBox(height: 24),
               adminUsersAsyncValue.when(
                 data: (admins) => DropdownButtonFormField<String>(
-                  value: _selectedAdminName,
+                  initialValue: _selectedAdminName,
                   hint: const Text('Pilih nama...'),
                   decoration: const InputDecoration(
                     labelText: 'Di Validasi oleh',

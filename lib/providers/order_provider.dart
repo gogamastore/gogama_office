@@ -28,6 +28,17 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
     await _fetchOrders();
   }
 
+  Future<bool> createOrder(Order order) async {
+    try {
+      await _orderService.createOrder(order);
+      await refresh();
+      return true;
+    } catch (e, s) {
+      log('Gagal membuat pesanan', error: e, stackTrace: s);
+      return false;
+    }
+  }
+
   Future<bool> updateOrder(String orderId, List<OrderItem> products,
       double shippingFee, double newSubtotal, double newTotal, {String? validatorName}) async {
     try {

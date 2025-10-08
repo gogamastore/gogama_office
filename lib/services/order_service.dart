@@ -8,6 +8,32 @@ import '../models/order_item.dart';
 class OrderService {
   final _db = FirebaseFirestore.instance;
 
+  Future<void> createOrder(Order order) async {
+    final orderRef = _db.collection('orders').doc();
+
+    await _db.runTransaction((transaction) async {
+      for (final item in order.products) {
+        final productRef = _db.collection('products').doc(item.productId);
+        final productSnapshot = await transaction.get(productRef);
+
+        if (!productSnapshot.exists) {
+          throw Exception('Produk dengan ID ${item.productId} tidak ditemukan.');
+        }
+
+        final data = productSnapshot.data()!;
+        final currentStock = data['stock'] as num;
+        if (currentStock < item.quantity) {
+          final productName = data['name'] ?? 'N/A';
+          throw Exception('Stok untuk "$productName" tidak mencukupi. Sisa: $currentStock, Dibutuhkan: ${item.quantity}.');
+        }
+
+        transaction.update(productRef, {'stock': FieldValue.increment(-item.quantity)});
+      }
+
+      transaction.set(orderRef, order.toFirestore());
+    });
+  }
+
   Future<void> markOrderAsPaid(String orderId) async {
     final orderRef = _db.collection('orders').doc(orderId);
     await orderRef.update({
@@ -163,9 +189,10 @@ class OrderService {
         if (!productSnapshot.exists) {
           throw Exception('Produk dengan ID $productId tidak ditemukan.');
         }
-        final currentStock = (productSnapshot.data()! as Map<String, dynamic>)['stock'] as num;
+        final data = productSnapshot.data()! as Map<String, dynamic>;
+        final currentStock = data['stock'] as num;
         if (currentStock + change < 0) {
-          final productName = (productSnapshot.data()! as Map<String, dynamic>)['name'] ?? 'N/A';
+          final productName = data['name'] ?? 'N/A';
           throw Exception('Stok untuk "$productName" tidak mencukupi. Sisa: $currentStock, Dibutuhkan: ${-change}.');
         }
       }

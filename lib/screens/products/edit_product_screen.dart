@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -269,8 +268,8 @@ class EditProductScreenState extends ConsumerState<EditProductScreen> {
           Container(
             width: 120,
             height: 120,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0E6ED),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE0E6ED),
               shape: BoxShape.circle,
             ),
             child: ClipOval(child: imageWidget),

@@ -53,17 +53,22 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             children: [
               _buildDetailRow(Ionicons.at_outline, 'Email', user.email),
               if (user.whatsapp != null && user.whatsapp!.isNotEmpty)
-                _buildDetailRow(Ionicons.logo_whatsapp, 'WhatsApp', user.whatsapp!),
+                _buildDetailRow(
+                    Ionicons.logo_whatsapp, 'WhatsApp', user.whatsapp!),
               if (user.role != null)
                 _buildDetailRow(Ionicons.ribbon_outline, 'Role', user.role!),
               if (user.shopName != null)
-                _buildDetailRow(Ionicons.storefront_outline, 'Nama Toko', user.shopName!),
+                _buildDetailRow(
+                    Ionicons.storefront_outline, 'Nama Toko', user.shopName!),
               if (user.address != null)
-                _buildDetailRow(Ionicons.location_outline, 'Alamat', user.address!, maxLines: 3),
+                _buildDetailRow(
+                    Ionicons.location_outline, 'Alamat', user.address!,
+                    maxLines: 3),
               _buildDetailRow(
                 Ionicons.calendar_outline,
                 'Tanggal Daftar',
-                DateFormat('dd MMMM yyyy', 'id_ID').format(user.createdAt.toDate()),
+                DateFormat('dd MMMM yyyy', 'id_ID')
+                    .format(user.createdAt.toDate()),
               ),
             ],
           ),
@@ -73,12 +78,20 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Tutup'),
           ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close the dialog
+              Navigator.of(context).pop(user); // Return the selected user
+            },
+            child: const Text('Pilih Customer'),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value, {int maxLines = 1}) {
+  Widget _buildDetailRow(IconData icon, String label, String value,
+      {int maxLines = 1}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -90,9 +103,16 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(label,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontSize: 15), maxLines: maxLines, overflow: TextOverflow.ellipsis,),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 15),
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -113,7 +133,8 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           // Navigasi ke halaman tambah dan tunggu hasilnya
-          final bool? customerAdded = await Navigator.of(context).push<bool>(
+          final bool? customerAdded =
+              await Navigator.of(context).push<bool>(
             MaterialPageRoute(builder: (context) => const AddCustomerScreen()),
           );
           // Jika customer berhasil ditambahkan, segarkan daftar
@@ -146,7 +167,8 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
           Expanded(
             child: customersAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, stack) => Center(child: Text('Gagal memuat data: $err')),
+              error: (err, stack) =>
+                  Center(child: Text('Gagal memuat data: $err')),
               data: (customers) {
                 // --- LOGIKA FILTER PENCARIAN ---
                 final filteredCustomers = customers.where((user) {
@@ -157,22 +179,27 @@ class _CustomerListScreenState extends ConsumerState<CustomerListScreen> {
                 }).toList();
 
                 if (filteredCustomers.isEmpty) {
-                  return const Center(child: Text('Customer tidak ditemukan.'));
+                  return const Center(
+                      child: Text('Customer tidak ditemukan.'));
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80), // Padding untuk FAB
+                  padding:
+                      const EdgeInsets.only(bottom: 80), // Padding untuk FAB
                   itemCount: filteredCustomers.length,
                   itemBuilder: (context, index) {
                     final user = filteredCustomers[index];
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Theme.of(context).primaryColorLight,
-                        child: user.photoURL != null && user.photoURL!.isNotEmpty
-                            ? ClipOval(child: Image.network(user.photoURL!, fit: BoxFit.cover))
+                        child: user.photoURL != null &&
+                                user.photoURL!.isNotEmpty
+                            ? ClipOval(child: Image.network(user.photoURL!,
+                                fit: BoxFit.cover))
                             : const Icon(Ionicons.person, color: Colors.white),
                       ),
-                      title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text(user.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text(user.whatsapp ?? 'No WhatsApp'),
                       onTap: () => _showCustomerDetails(context, user),
                     );
