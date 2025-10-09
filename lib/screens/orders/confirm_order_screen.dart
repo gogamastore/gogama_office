@@ -75,7 +75,17 @@ class _ConfirmOrderScreenState extends ConsumerState<ConfirmOrderScreen> {
       }).toList();
 
       final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
-      final isPaid = _paymentMethod == 'cod';
+
+      String status;
+      String paymentStatus;
+
+      if (_paymentMethod == 'cod') {
+        status = 'Pending';
+        paymentStatus = 'Unpaid';
+      } else { // Asumsi 'bank_transfer'
+        status = 'Pending';
+        paymentStatus = 'Unpaid';
+      }
 
       final finalOrder = CustomerOrder(
         customer: _nameController.text,
@@ -85,12 +95,12 @@ class _ConfirmOrderScreenState extends ConsumerState<ConfirmOrderScreen> {
           whatsapp: _whatsappController.text,
         ),
         products: productsForCreation,
-        total: _total,
+        total: _total.toInt(), // Perbaikan format Total
         shippingFee: shippingFee,
         shippingMethod: _shippingMethod == 'pickup' ? 'Ambil di Toko' : 'Pengiriman oleh Kurir',
-        status: isPaid ? 'Delivered' : 'Pending',
+        status: status, // Perbaikan logika status
         paymentMethod: _paymentMethod,
-        paymentStatus: isPaid ? 'Paid' : 'Unpaid',
+        paymentStatus: paymentStatus, // Perbaikan logika status pembayaran
         paymentProofUrl: null,
       );
 
