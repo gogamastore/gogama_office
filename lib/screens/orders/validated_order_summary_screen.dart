@@ -64,6 +64,10 @@ class _ValidatedOrderSummaryScreenState
       if (success) {
         await ref.read(orderServiceProvider).updateOrderStatus(orderId, 'processing');
 
+        // --- FUNGSI BARU DITAMBAHKAN DI SINI ---
+        await ref.read(orderServiceProvider).setValidationTimestamp(orderId);
+        // --- AKHIR FUNGSI BARU ---
+
         ref.invalidate(orderProvider);
         ref.invalidate(orderDetailsProvider(orderId));
         ref.invalidate(orderStatusCountsProvider);
@@ -169,18 +173,29 @@ class _ValidatedOrderSummaryScreenState
                                     const TextStyle(fontWeight: FontWeight.bold)),
                           ]),
                       const Divider(height: 24),
-                      ...widget.validatedItems.map((item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 8.0),
-                            child: ListTile(
-                              visualDensity: VisualDensity.compact,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              subtitle: Text(
-                                  '${item.quantity} x ${currencyFormatter.format(item.price)}'),
-                              trailing: Text(
-                                  currencyFormatter.format(item.quantity * item.price), style: const TextStyle(fontWeight: FontWeight.w500)),
-                            ),
-                          )),
+                      
+                      SizedBox(
+                        height: 300,
+                        child: ListView.builder(
+                          itemCount: widget.validatedItems.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final item = widget.validatedItems[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: ListTile(
+                                visualDensity: VisualDensity.compact,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                subtitle: Text(
+                                    '${item.quantity} x ${currencyFormatter.format(item.price)}'),
+                                trailing: Text(
+                                    currencyFormatter.format(item.quantity * item.price), style: const TextStyle(fontWeight: FontWeight.w500)),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+
                       const Divider(height: 24),
                       _buildSummaryRow(title: 'Subtotal', amount: newSubtotal, formatter: currencyFormatter),
                       const SizedBox(height: 8),

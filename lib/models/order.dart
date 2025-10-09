@@ -79,28 +79,6 @@ class Order {
     this.kasir, // <-- BARU: Ditambahkan di konstruktor
   });
 
-  Map<String, dynamic> toFirestore() {
-    return {
-      'customer': customer,
-      'customerDetails': {
-        'name': customer,
-        'whatsapp': customerPhone,
-        'address': customerAddress,
-      },
-      'date': date,
-      'status': status,
-      'total': total,
-      'paymentMethod': paymentMethod,
-      'paymentStatus': paymentStatus,
-      'shippingMethod': shippingMethod,
-      'shippingFee': shippingFee,
-      'products': products.map((p) => p.toJson()).toList(),
-      'productIds': products.map((p) => p.productId).toList(),
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-  }
-
   factory Order.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     Map<String, dynamic> customerDetails =
@@ -119,13 +97,17 @@ class Order {
     return Order(
       id: doc.id,
       customer: _parseString(data['customer'], defaultValue: 'N/A'),
-      customerPhone: _parseString(customerDetails['whatsapp'], defaultValue: '-'),
-      customerAddress: _parseString(customerDetails['address'], defaultValue: '-'),
+      customerPhone:
+          _parseString(customerDetails['whatsapp'], defaultValue: '-'),
+      customerAddress:
+          _parseString(customerDetails['address'], defaultValue: '-'),
       date: _parseDate(data['date']),
-      status: _parseString(data['status'], defaultValue: 'pending').toLowerCase(),
-      total: totalString, 
+      status:
+          _parseString(data['status'], defaultValue: 'pending').toLowerCase(),
+      total: totalString,
       paymentMethod: _parseString(data['paymentMethod'], defaultValue: 'N/A'),
-      paymentStatus: _parseString(data['paymentStatus'], defaultValue: 'unpaid').toLowerCase(),
+      paymentStatus: _parseString(data['paymentStatus'], defaultValue: 'unpaid')
+          .toLowerCase(),
       paymentProofUrl: _parseStringOrNull(data['paymentProofUrl']),
       shippingMethod: _parseString(data['shippingMethod'], defaultValue: 'N/A'),
       shippingFee: _parseDouble(data['shippingFee']),
@@ -136,9 +118,34 @@ class Order {
           [],
       updatedAt:
           data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
-      shippedAt: _parseDateOrNull(data['shippedAt']), 
+      shippedAt: _parseDateOrNull(data['shippedAt']),
       kasir: _parseStringOrNull(data['kasir']), // <-- BARU: Logika parsing
     );
+  }
+
+    // BARU: Metode untuk mengubah Order menjadi Map untuk Firestore
+  Map<String, dynamic> toFirestore() {
+    return {
+      'customer': customer,
+      'customerDetails': {
+        'name': customer,
+        'whatsapp': customerPhone,
+        'address': customerAddress,
+      },
+      'date': date,
+      'status': status,
+      'total': double.tryParse(total) ?? 0.0, // Simpan sebagai double
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
+      'paymentProofUrl': paymentProofUrl,
+      'shippingMethod': shippingMethod,
+      'shippingFee': shippingFee,
+      'products': products.map((p) => p.toJson()).toList(),
+      'productIds': products.map((p) => p.productId).toList(),
+      'updatedAt': updatedAt ?? FieldValue.serverTimestamp(),
+      'shippedAt': shippedAt,
+      'kasir': kasir,
+    };
   }
 
   Order copyWith({
@@ -159,7 +166,7 @@ class Order {
     List<OrderProduct>? products,
     Timestamp? updatedAt,
     bool allowNullUpdatedAt = false,
-    Timestamp? shippedAt, 
+    Timestamp? shippedAt,
     bool allowNullShippedAt = false,
     String? kasir, // <-- BARU: Ditambahkan di copyWith
     bool allowNullKasir = false,
@@ -174,13 +181,19 @@ class Order {
       total: total ?? this.total,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
-      paymentProofUrl: allowNullPaymentProofUrl ? paymentProofUrl : (paymentProofUrl ?? this.paymentProofUrl),
+      paymentProofUrl: allowNullPaymentProofUrl
+          ? paymentProofUrl
+          : (paymentProofUrl ?? this.paymentProofUrl),
       shippingMethod: shippingMethod ?? this.shippingMethod,
-      shippingFee: allowNullShippingFee ? shippingFee : (shippingFee ?? this.shippingFee),
+      shippingFee: allowNullShippingFee
+          ? shippingFee
+          : (shippingFee ?? this.shippingFee),
       products: products ?? this.products,
       updatedAt: allowNullUpdatedAt ? updatedAt : (updatedAt ?? this.updatedAt),
       shippedAt: allowNullShippedAt ? shippedAt : (shippedAt ?? this.shippedAt),
-      kasir: allowNullKasir ? kasir : (kasir ?? this.kasir), // <-- BARU: Logika copyWith
+      kasir: allowNullKasir
+          ? kasir
+          : (kasir ?? this.kasir), // <-- BARU: Logika copyWith
     );
   }
 }

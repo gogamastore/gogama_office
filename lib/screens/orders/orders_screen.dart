@@ -4,8 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../models/staff_model.dart';
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
+import '../../services/staff_service.dart';
 import './create_order_screen.dart';
 import './order_detail_screen.dart';
 
@@ -204,6 +206,97 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
+  void _showProcessOrderDialog(BuildContext context, WidgetRef ref, Order order) {
+    final formKey = GlobalKey<FormState>();
+    String? selectedAdminName;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Consumer(
+          builder: (context, ref, child) {
+            final adminUsersAsyncValue = ref.watch(adminUsersProvider);
+            return StatefulBuilder(
+              builder: (context, setState) {
+                return AlertDialog(
+                  title: const Text('Validasi Pesanan'),
+                  content: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Pilih nama Anda untuk melanjutkan proses validasi.'),
+                        const SizedBox(height: 24),
+                        adminUsersAsyncValue.when(
+                          data: (admins) => DropdownButtonFormField<String>(
+                            hint: const Text('Pilih nama...'),
+                            decoration: const InputDecoration(
+                              labelText: 'Di Validasi oleh',
+                              border: OutlineInputBorder(),
+                            ),
+                            value: selectedAdminName,
+                            items: admins.map<DropdownMenuItem<String>>((Staff admin) {
+                              return DropdownMenuItem<String>(
+                                value: admin.name,
+                                child: Text(admin.name),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                selectedAdminName = newValue;
+                              });
+                            },
+                            validator: (value) =>
+                                value == null || value.isEmpty ? 'Harap pilih nama validator' : null,
+                          ),
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (err, stack) =>
+                              Center(child: Text('Gagal memuat admin: $err')),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Batal'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        if (formKey.currentState!.validate()) {
+                          final navigator = Navigator.of(context);
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          try {
+                            await ref.read(orderServiceProvider).updateOrderStatus(order.id, 'processing');
+                            await ref.read(orderServiceProvider).setValidationTimestamp(order.id);
+                            await ref.read(orderServiceProvider).setOrderValidator(order.id, selectedAdminName!);
+                            
+                            navigator.pop();
+                            ref.read(orderProvider.notifier).refresh();
+
+                          } catch (e) {
+                            if(navigator.canPop()){
+                              navigator.pop();
+                            }
+                            scaffoldMessenger.showSnackBar(
+                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Ya'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -353,43 +446,11 @@ class OrdersScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () async {
-                        String nextStatus = '';
-                        if (order.status == 'pending')
-                          nextStatus = 'processing';
-                        if (order.status == 'processing')
-                          nextStatus = 'shipped';
+                      onPressed: () {
+                         final nextStatus = order.status == 'pending' ? 'processing' : (order.status == 'processing' ? 'shipped' : '');
 
                         if (order.status == 'pending') {
-                          final bool? confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Validasi Pesanan'),
-                              content: const Text(
-                                  'Apakah Pesanan ini sudah di Validasi?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(false),
-                                  child: const Text('Batal'),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).pop(true),
-                                  child: const Text('Ya'),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (confirmed == true && nextStatus.isNotEmpty) {
-                            ref
-                                .read(orderServiceProvider)
-                                .updateOrderStatus(order.id, nextStatus)
-                                .then((_) {
-                              ref.read(orderProvider.notifier).refresh();
-                            });
-                          }
+                           _showProcessOrderDialog(context, ref, order);
                         } else if (nextStatus.isNotEmpty) {
                           ref
                               .read(orderServiceProvider)
@@ -431,6 +492,9 @@ class OrdersScreen extends ConsumerWidget {
     if (isUnpaid) {
       return TextButton.icon(
         onPressed: () async {
+           final scaffoldMessenger = ScaffoldMessenger.of(context);
+           final navigator = Navigator.of(context);
+
           final bool? confirmed = await showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -439,11 +503,11 @@ class OrdersScreen extends ConsumerWidget {
                   const Text('Apakah pesanan ini sudah benar-benar lunas?'),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
+                  onPressed: () => navigator.pop(false),
                   child: const Text('Batal'),
                 ),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
+                  onPressed: () => navigator.pop(true),
                   child: const Text('Ya, Lunas',
                       style: TextStyle(color: Colors.green)),
                 ),
@@ -451,17 +515,17 @@ class OrdersScreen extends ConsumerWidget {
             ),
           );
 
-          if (confirmed == true && context.mounted) {
+          if (confirmed == true) {
             try {
               await ref.read(orderServiceProvider).markOrderAsPaid(order.id);
               ref.read(orderProvider.notifier).refresh();
-              ScaffoldMessenger.of(context).showSnackBar(
+              scaffoldMessenger.showSnackBar(
                 const SnackBar(
                     content: Text('Pesanan ditandai lunas.'),
                     backgroundColor: Colors.green),
               );
             } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              scaffoldMessenger.showSnackBar(
                 SnackBar(
                     content: Text('Gagal memperbarui: $e'),
                     backgroundColor: Colors.red),
@@ -484,13 +548,12 @@ class OrdersScreen extends ConsumerWidget {
         onPressed: hasProof
             ? () async {
                 final Uri url = Uri.parse(order.paymentProofUrl!);
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
                 if (!await launchUrl(url,
                     mode: LaunchMode.externalApplication)) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    scaffoldMessenger.showSnackBar(
                       const SnackBar(content: Text('Gagal membuka URL.')),
                     );
-                  }
                 }
               }
             : null,

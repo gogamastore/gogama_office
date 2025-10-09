@@ -1,17 +1,15 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
 
 import '../../models/app_user.dart';
-import '../../models/order.dart';
 import '../../models/order_item.dart';
 import '../../models/order_product.dart';
 import '../../models/product.dart';
-import '../../providers/order_provider.dart';
 import '../customers/customer_list_screen.dart';
+import 'confirm_order_screen.dart'; // Impor halaman baru
 import 'edit_order_item_dialog.dart';
 import 'select_product_screen.dart';
 
@@ -24,35 +22,12 @@ class CreateOrderScreen extends ConsumerStatefulWidget {
 
 class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final List<OrderItem> _items = [];
-  late TextEditingController _shippingFeeController;
-  double _subtotal = 0;
-  double _total = 0;
-  bool _isSaving = false;
   AppUser? _selectedCustomer;
 
-  @override
-  void initState() {
-    super.initState();
-    _shippingFeeController = TextEditingController(text: '0');
-    _calculateTotals();
-  }
-
-  @override
-  void dispose() {
-    _shippingFeeController.dispose();
-    super.dispose();
-  }
-
-  void _calculateTotals() {
-    _subtotal = _items.fold(
-      0.0,
-      (previousValue, item) => previousValue + (item.price * item.quantity),
-    );
-    final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
-    setState(() {
-      _total = _subtotal + shippingFee;
-    });
-  }
+  double get _subtotal => _items.fold(
+        0.0,
+        (previousValue, item) => previousValue + (item.price * item.quantity),
+      );
 
   void _editItem(int index) async {
     final itemToEdit = _items[index];
@@ -65,7 +40,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     if (updatedItem != null) {
       setState(() {
         _items[index] = updatedItem;
-        _calculateTotals();
       });
     }
   }
@@ -74,7 +48,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     final removedItem = _items[index];
     setState(() {
       _items.removeAt(index);
-      _calculateTotals();
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -113,7 +86,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
           ));
         }
         _items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-        _calculateTotals();
       });
     }
   }
@@ -133,102 +105,49 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     }
   }
 
-  Future<void> _createOrder() async {
-    if (_isSaving) return;
+  // --- FUNGSI DIUBAH UNTUK NAVIGASI --- 
+  void _proceedToConfirmation() {
     if (_selectedCustomer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih customer terlebih dahulu.'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Pilih customer terlebih dahulu.'), backgroundColor: Colors.red),
       );
       return;
     }
-    setState(() => _isSaving = true);
 
-    try {
-      final newOrder = Order(
-        id: '', // Firestore will generate this
-        customer: _selectedCustomer!.name,
-        customerPhone: _selectedCustomer!.whatsapp ?? '',
-        customerAddress: _selectedCustomer!.address ?? '',
-        date: Timestamp.now(),
-        status: 'pending',
-        total: _total.toString(),
-        paymentMethod: 'bank_transfer',
-        paymentStatus: 'unpaid',
-        shippingMethod: 'pickup',
-        shippingFee: double.tryParse(_shippingFeeController.text) ?? 0.0,
-        products: _items
-            .map((item) => OrderProduct(
-                  productId: item.productId,
-                  name: item.name,
-                  quantity: item.quantity,
-                  price: item.price,
-                  sku: item.sku,
-                  imageUrl: item.imageUrl,
-                ))
-            .toList(),
-      );
+    final productsForOrder = _items.map((item) => OrderProduct(
+      productId: item.productId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      sku: item.sku,
+      imageUrl: item.imageUrl,
+    )).toList();
 
-      final success =
-          await ref.read(orderProvider.notifier).createOrder(newOrder);
-
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pesanan berhasil dibuat!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pop();
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gagal membuat pesanan. Silakan coba lagi.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Terjadi error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ConfirmOrderScreen(
+          selectedCustomer: _selectedCustomer!,
+          products: productsForOrder,
+          subtotal: _subtotal,
+        ),
+      ),
+    );
   }
+  // --- AKHIR PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buat Pesanan'),
+        title: const Text('Buat Pesanan Baru'),
         actions: [
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.only(right: 16.0),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _items.isNotEmpty ? _createOrder : null,
-              tooltip: 'Buat Pesanan',
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_rounded),
+            // Tombol akan aktif jika ada customer dan minimal 1 produk
+            onPressed: _items.isNotEmpty && _selectedCustomer != null ? _proceedToConfirmation : null,
+            tooltip: 'Lanjutkan ke Konfirmasi',
+          ),
         ],
       ),
       body: Column(
@@ -245,9 +164,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -255,16 +172,15 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: ElevatedButton.icon(
               onPressed: _addProduct,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add_shopping_cart_rounded),
               label: const Text('Tambah Produk'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: _items.isEmpty
                 ? _buildEmptyState()
@@ -323,60 +239,22 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       elevation: 8,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          16 + MediaQuery.of(context).padding.bottom,
+          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextField(
-              controller: _shippingFeeController,
-              decoration: InputDecoration(
-                labelText: 'Biaya Pengiriman',
-                prefixText: 'Rp ',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            const Text(
+              'Subtotal',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              formatter.format(_subtotal),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).primaryColor,
               ),
-              keyboardType: TextInputType.number,
-              onChanged: (value) => _calculateTotals(),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Subtotal Produk',
-                    style: TextStyle(fontSize: 14)),
-                Text(
-                  formatter.format(_subtotal),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Divider(),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total Akhir',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  formatter.format(_total),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -420,21 +298,14 @@ class _OrderItemCard extends ConsumerWidget {
                   children: [
                     Text(
                       item.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '${item.quantity} x ${currencyFormatter.format(item.price)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -445,20 +316,13 @@ class _OrderItemCard extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(
-                      Ionicons.trash_outline,
-                      color: Colors.redAccent,
-                    ),
+                    icon: const Icon(Ionicons.trash_outline, color: Colors.redAccent),
                     onPressed: onRemove,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     currencyFormatter.format(item.price * item.quantity),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
                   ),
                 ],
               ),
@@ -495,11 +359,7 @@ class _OrderItemCard extends ConsumerWidget {
         color: const Color(0xFFE0E6ED),
         borderRadius: BorderRadius.circular(8.0),
       ),
-      child: const Icon(
-        Ionicons.cube_outline,
-        color: Color(0xFFBDC3C7),
-        size: 30,
-      ),
+      child: const Icon(Ionicons.cube_outline, color: Color(0xFFBDC3C7), size: 30),
     );
   }
 }

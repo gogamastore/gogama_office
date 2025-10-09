@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import '../models/dashboard_data.dart';
 import '../models/order.dart';
@@ -7,89 +8,105 @@ class DashboardService {
   final _db = firestore.FirebaseFirestore.instance;
 
   Future<DashboardData> getDashboardData() async {
-    final now = DateTime.now();
-    final startOfToday = firestore.Timestamp.fromDate(DateTime(now.year, now.month, now.day, 0, 0, 0));
-    final endOfToday = firestore.Timestamp.fromDate(DateTime(now.year, now.month, now.day, 23, 59, 59));
+    try {
+      final now = DateTime.now();
+      final startOfToday = firestore.Timestamp.fromDate(DateTime(now.year, now.month, now.day, 0, 0, 0));
+      final endOfToday = firestore.Timestamp.fromDate(DateTime(now.year, now.month, now.day, 23, 59, 59));
 
-    // 1. Query untuk Total Revenue (status processing/Processing, filter by updatedAt)
-    final revenueOrdersQuery = _db
-        .collection('orders')
-        .where('status', whereIn: ['processing', 'Processing'])
-        .where('updatedAt', isGreaterThanOrEqualTo: startOfToday)
-        .where('updatedAt', isLessThanOrEqualTo: endOfToday);
-    final revenueOrdersSnapshot = await revenueOrdersQuery.get();
+      final revenueOrdersQuery = _db
+          .collection('orders')
+          .where('status', whereIn: ['processing', 'shipped', 'delivered'])
+          .where('validatedAt', isGreaterThanOrEqualTo: startOfToday)
+          .where('validatedAt', isLessThanOrEqualTo: endOfToday);
+      final revenueOrdersSnapshot = await revenueOrdersQuery.get();
 
-    double totalRevenueToday = 0;
-    for (var doc in revenueOrdersSnapshot.docs) {
-      final data = doc.data();
-      double orderTotal = 0;
-      for (var product in (data['products'] as List<dynamic>)) {
-        orderTotal += (product['price'] as num).toDouble() * (product['quantity'] as num).toInt();
+      double totalRevenueToday = 0;
+      for (var doc in revenueOrdersSnapshot.docs) {
+        final data = doc.data();
+        double orderTotal = 0;
+        for (var product in (data['products'] as List<dynamic>)) {
+          orderTotal += (product['price'] as num).toDouble() * (product['quantity'] as num).toInt();
+        }
+        totalRevenueToday += orderTotal;
       }
-      totalRevenueToday += orderTotal;
-    }
 
-    // 2. Query untuk Sales (status pending/processing, filter by createdAt/date)
-    final salesOrdersQuery = _db
-        .collection('orders')
-        .where('status', whereIn: ['pending', 'Pending', 'processing', 'Processing'])
-        .where('date', isGreaterThanOrEqualTo: startOfToday)
-        .where('date', isLessThanOrEqualTo: endOfToday);
-    final salesOrdersSnapshot = await salesOrdersQuery.get();
-    final int totalSalesToday = salesOrdersSnapshot.docs.length;
-    
-    // --- Logika lain yang tidak berubah ---
-    final oneMonthAgo = now.subtract(const Duration(days: 30));
-    final newCustomersQuery = _db
-        .collection('user')
-        .where('role', isEqualTo: 'reseller')
-        .where('createdAt', isGreaterThanOrEqualTo: oneMonthAgo);
-    final newCustomersSnapshot = await newCustomersQuery.get();
-    final int newCustomers = newCustomersSnapshot.docs.length;
+      final salesOrdersQuery = _db
+          .collection('orders')
+          .where('status', whereIn: ['pending', 'Pending', 'processing', 'Processing'])
+          .where('date', isGreaterThanOrEqualTo: startOfToday)
+          .where('date', isLessThanOrEqualTo: endOfToday);
+      final salesOrdersSnapshot = await salesOrdersQuery.get();
+      final int totalSalesToday = salesOrdersSnapshot.docs.length;
+      
+      final oneMonthAgo = now.subtract(const Duration(days: 30));
+      final newCustomersQuery = _db
+          .collection('user')
+          .where('role', isEqualTo: 'reseller')
+          .where('createdAt', isGreaterThanOrEqualTo: oneMonthAgo);
+      final newCustomersSnapshot = await newCustomersQuery.get();
+      final int newCustomers = newCustomersSnapshot.docs.length;
 
-    final productsSnapshot = await _db.collection('products').get();
-    final int totalProducts = productsSnapshot.docs.length;
+      final productsSnapshot = await _db.collection('products').get();
+      final int totalProducts = productsSnapshot.docs.length;
 
-    int lowStockProducts = 0;
-    for (var doc in productsSnapshot.docs) {
-      final data = doc.data();
-      if ((data['stock'] as num? ?? 0) <= 5) {
-        lowStockProducts++;
+      int lowStockProducts = 0;
+      for (var doc in productsSnapshot.docs) {
+        final data = doc.data();
+        if ((data['stock'] as num? ?? 0) <= 5) {
+          lowStockProducts++;
+        }
       }
+
+      final recentOrdersSnapshot = await _db
+          .collection('orders')
+          .orderBy('date', descending: true)
+          .limit(5)
+          .get();
+      final List<Order> recentOrders = recentOrdersSnapshot.docs
+          .map((doc) => Order.fromFirestore(doc as firestore.DocumentSnapshot))
+          .toList();
+
+      return DashboardData(
+        totalRevenue: totalRevenueToday.round(),
+        totalSales: totalSalesToday,
+        newCustomers: newCustomers,
+        totalProducts: totalProducts,
+        lowStockProducts: lowStockProducts,
+        recentOrders: recentOrders,
+      );
+    } on firestore.FirebaseException catch (e) {
+      if (e.code == 'failed-precondition' && e.message != null) {
+        final urlMatch = RegExp(r'(https://console.firebase.google.com/project/[^/]+/database/[^/]+/indexes[?]create_composite=.*?)').firstMatch(e.message!);
+        if (urlMatch != null) {
+          final url = urlMatch.group(1)!;
+          developer.log(
+            '\n========================================\n'
+            'SALIN LINK UNTUK MEMBUAT INDEX FIRESTORE:\n\n'
+            '$url\n\n'
+            '========================================\n',
+            name: 'Firestore Index Trap (Dashboard)',
+            level: 1200,
+          );
+        }
+      }
+      developer.log('Firebase error in getDashboardData: ${e.toString()}', name: 'DashboardService', level: 1000);
+      rethrow;
+    } catch (e, stackTrace) {
+      developer.log('Generic error in getDashboardData: ${e.toString()}', name: 'DashboardService', level: 1000, error: e, stackTrace: stackTrace);
+      rethrow;
     }
-
-    final recentOrdersSnapshot = await _db
-        .collection('orders')
-        .orderBy('date', descending: true)
-        .limit(5)
-        .get();
-    final List<Order> recentOrders = recentOrdersSnapshot.docs
-        .map((doc) => Order.fromFirestore(doc as firestore.DocumentSnapshot))
-        .toList();
-
-    return DashboardData(
-      totalRevenue: totalRevenueToday.round(),
-      totalSales: totalSalesToday,
-      newCustomers: newCustomers,
-      totalProducts: totalProducts,
-      lowStockProducts: lowStockProducts,
-      recentOrders: recentOrders,
-    );
   }
 
-  // --- FUNGSI INI DIUBAH UNTUK MENGAMBIL DATA 1 BULAN TERAKHIR ---
   Future<List<SalesData>> getSalesAnalytics() async {
     final now = DateTime.now();
     final thirtyDaysAgo = now.subtract(const Duration(days: 30));
     Map<int, int> dailySales = {};
 
-    // 1. Inisialisasi 30 hari terakhir
     for (int i = 0; i < 30; i++) {
       final day = thirtyDaysAgo.add(Duration(days: i));
       dailySales[day.day] = 0;
     }
 
-    // 2. Query pesanan dalam 30 hari terakhir
     final querySnapshot = await _db
         .collection('orders')
         .where('status', whereIn: ['delivered', 'shipped', 'processing'])
@@ -97,7 +114,6 @@ class DashboardService {
             isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(thirtyDaysAgo))
         .get();
 
-    // 3. Proses data penjualan harian
     for (var doc in querySnapshot.docs) {
       final data = doc.data();
       final orderDate = (data['date'] as firestore.Timestamp).toDate();
@@ -116,7 +132,6 @@ class DashboardService {
       }
     }
 
-    // 4. Ubah ke format List<SalesData>
     return dailySales.entries
         .map((entry) =>
             SalesData(label: entry.key.toString(), value: entry.value))

@@ -123,10 +123,10 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
 
       final ordersSnapshot = await _firestore
           .collection('orders')
-          .where('status', whereIn: ['processing', 'Processing'])
-          .where('updatedAt', isGreaterThanOrEqualTo: startDate)
-          .where('updatedAt', isLessThanOrEqualTo: endDate)
-          .orderBy('updatedAt', descending: true)
+          .where('status', whereIn: ['processing', 'shipped', 'delivered'])
+          .where('validatedAt', isGreaterThanOrEqualTo: startDate)
+          .where('validatedAt', isLessThanOrEqualTo: endDate)
+          .orderBy('validatedAt', descending: true)
           .get();
 
       final relevantDocs = ordersSnapshot.docs;
@@ -156,8 +156,7 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
           double orderRevenue = 0;
           double orderCogs = 0;
 
-          // Fallback to 'date' if 'updatedAt' is missing for older documents
-          final orderTimestamp = orderData['updatedAt'] as Timestamp? ?? orderData['date'] as Timestamp;
+          final orderTimestamp = orderData['validatedAt'] as Timestamp? ?? orderData['date'] as Timestamp;
 
           for (var item in (orderData['products'] as List<dynamic>)) {
               final productId = item['productId'] as String;
@@ -186,7 +185,7 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
           ));
           
           totalRevenue += orderRevenue;
-          totalCogs += orderCogs; // <--- INI DIA PERBAIKANNYA
+          totalCogs += orderCogs;
 
         } catch (e, stackTrace) {
           developer.log(
