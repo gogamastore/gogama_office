@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart'; // DIIMPOR: Provider yang benar
+import '../../providers/user_provider.dart';
 import 'profile_settings_screen.dart';
 import 'reports_screen.dart';
 import 'security_screen.dart';
-import '../settings/settings_screen.dart'; // DIIMPOR: Halaman Pengaturan Toko
+import '../settings/settings_screen.dart';
 import '../../models/user_model.dart';
+import 'my_orders_screen.dart'; // Impor halaman baru
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // DIPERBAIKI: Menggunakan provider yang benar
     final userData = ref.watch(userDataProvider);
     final authService = ref.read(authServiceProvider);
 
@@ -94,6 +94,15 @@ class ProfileScreen extends ConsumerWidget {
                       title: 'Edit Profil',
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(
                           builder: (context) => const ProfileSettingsScreen())),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    // Menu baru ditambahkan di sini
+                    _buildProfileMenuItem(
+                      context,
+                      icon: Icons.receipt_long_outlined, // Ikon untuk pesanan
+                      title: 'Pesanan',
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (context) => const MyOrdersScreen())),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     _buildProfileMenuItem(

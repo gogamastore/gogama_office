@@ -202,57 +202,83 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final validatedProductList = _validatedProducts.values.toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Validasi Pesanan POS')),
-      body: Column(
-        children: [
-          _buildInputSection(),
-          const Divider(height: 1),
-          Expanded(
-            child: Column(
-              children: [
-                _buildSectionHeader('Produk Pesanan (${_unscannedProducts.length})'),
-                Expanded(
-                  child: _unscannedProducts.isEmpty
-                      ? const Center(child: Text('Semua produk sudah divalidasi!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)))
-                      : ListView.builder(
-                          itemCount: _unscannedProducts.length,
-                          itemBuilder: (context, index) {
-                            final product = _unscannedProducts[index];
-                            return ListTile(
-                              leading: CircleAvatar(child: Text('${product.quantity}')),
-                              title: Text(product.name),
-                              subtitle: Text('SKU: ${product.sku}'),
-                            );
-                          },
-                        ),
-                ),
-                const Divider(thickness: 4),
-                _buildSectionHeader('Keranjang Validasi (${validatedProductList.length})'),
-                Expanded(
-                  child: validatedProductList.isEmpty
-                      ? const Center(child: Text('Pindai atau input SKU untuk memulai...', style: TextStyle(fontSize: 16, color: Colors.grey)))
-                      : ListView.builder(
-                          itemCount: validatedProductList.length,
-                          itemBuilder: (context, index) {
-                            final product = validatedProductList[index];
-                            final confirmedQty = _confirmedQuantities[product.sku] ?? 0;
-                            return PosScannedItemTile(
-                              name: product.name,
-                              sku: product.sku,
-                              price: product.price,
-                              originalQuantity: product.quantity,
-                              validatedQuantity: confirmedQty,
-                              onTap: () => _showQuantityDialog(product),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Konfirmasi Keluar'),
+            content: const Text('Apakah Anda yakin ingin keluar dari halaman ini?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(), // Tutup dialog
+                child: const Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(); // Tutup dialog
+                  Navigator.of(context).pop(); // Keluar dari halaman
+                },
+                child: const Text('Ya, Keluar'),
+              ),
+            ],
           ),
-          _buildSummary(currencyFormatter),
-        ],
+        );
+      },
+      child: Scaffold(
+        appBar: AppBar(title: const Text('Validasi Pesanan POS')),
+        body: Column(
+          children: [
+            _buildInputSection(),
+            const Divider(height: 1),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildSectionHeader('Produk Pesanan (${_unscannedProducts.length})'),
+                  Expanded(
+                    child: _unscannedProducts.isEmpty
+                        ? const Center(child: Text('Semua produk sudah divalidasi!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)))
+                        : ListView.builder(
+                            itemCount: _unscannedProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = _unscannedProducts[index];
+                              return ListTile(
+                                leading: CircleAvatar(child: Text('${product.quantity}')),
+                                title: Text(product.name),
+                                subtitle: Text('SKU: ${product.sku}'),
+                              );
+                            },
+                          ),
+                  ),
+                  const Divider(thickness: 4),
+                  _buildSectionHeader('Keranjang Validasi (${validatedProductList.length})'),
+                  Expanded(
+                    child: validatedProductList.isEmpty
+                        ? const Center(child: Text('Pindai atau input SKU untuk memulai...', style: TextStyle(fontSize: 16, color: Colors.grey)))
+                        : ListView.builder(
+                            itemCount: validatedProductList.length,
+                            itemBuilder: (context, index) {
+                              final product = validatedProductList[index];
+                              final confirmedQty = _confirmedQuantities[product.sku] ?? 0;
+                              return PosScannedItemTile(
+                                name: product.name,
+                                sku: product.sku,
+                                price: product.price,
+                                originalQuantity: product.quantity,
+                                validatedQuantity: confirmedQty,
+                                onTap: () => _showQuantityDialog(product),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+            _buildSummary(currencyFormatter),
+          ],
+        ),
       ),
     );
   }

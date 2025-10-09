@@ -8,33 +8,31 @@ import '../../models/staff_model.dart';
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
 import '../../services/staff_service.dart';
-import './create_order_screen.dart';
-import './order_detail_screen.dart';
+import '../orders/order_detail_screen.dart';
 
-class OrdersScreen extends ConsumerWidget {
-  const OrdersScreen({super.key});
+class MyOrdersScreen extends ConsumerWidget {
+  const MyOrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Pengaman: Jika filter disetel ke status yang tidak lagi ditampilkan,
-    // reset ke status 'pending'
+    // Override filter jika masih 'pending' saat masuk ke halaman ini
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentFilter = ref.read(orderFilterProvider);
-      if (currentFilter == 'delivered' || currentFilter == 'cancelled') {
-        ref.read(orderFilterProvider.notifier).state = 'pending';
+      if (ref.read(orderFilterProvider) == 'pending') {
+        ref.read(orderFilterProvider.notifier).state = 'processing';
       }
     });
 
     final ordersAsyncValue = ref.watch(orderProvider);
     final filteredOrders = ref.watch(filteredOrdersProvider);
-    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Daftar Pesanan'),
+      ),
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context, textTheme),
             _buildSearchBar(ref),
             _buildFiltersContainer(context, ref),
             Expanded(
@@ -70,52 +68,6 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, TextTheme textTheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Pesanan',
-                  style: textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF2C3E50),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Kelola pesanan yang sedang berjalan.', // Teks diubah
-                  style: textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF7F8C8D),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CreateOrderScreen(),
-                ),
-              );
-            },
-            icon: const Icon(Ionicons.add_circle, size: 32),
-            tooltip: 'Buat Pesanan',
-            color: Theme.of(context).primaryColor,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSearchBar(WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -141,11 +93,12 @@ class OrdersScreen extends ConsumerWidget {
     final activeFilter = ref.watch(orderFilterProvider);
     final counts = ref.watch(orderStatusCountsProvider);
 
-    // Menghapus filter 'delivered' dan 'cancelled'
+    // Menghapus filter 'pending'
     final statusFilters = [
-      {'key': 'pending', 'label': 'Belum Proses'},
       {'key': 'processing', 'label': 'Perlu Dikirim'},
       {'key': 'shipped', 'label': 'Dikirim'},
+      {'key': 'delivered', 'label': 'Selesai'},
+      {'key': 'cancelled', 'label': 'Dibatalkan'},
     ];
 
     return Padding(
