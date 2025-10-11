@@ -5,9 +5,83 @@ import '../models/product_sales_data.dart';
 import '../models/product_sales_history.dart';
 import '../models/receivable_data.dart';
 import '../models/purchase.dart';
+import '../models/customer_report.dart'; // Impor model baru
 
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // --- FUNGSI GENERATE CUSTOMER REPORT BARU ---
+  Future<List<CustomerReport>> generateCustomerReport({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final DateTime inclusiveStartDate =
+        DateTime(startDate.year, startDate.month, startDate.day);
+    final DateTime exclusiveEndDate =
+        DateTime(endDate.year, endDate.month, endDate.day)
+            .add(const Duration(days: 1));
+
+    // 1. Ambil semua pesanan dalam rentang tanggal
+    final querySnapshot = await _db
+        .collection('orders')
+        .where('date', isGreaterThanOrEqualTo: inclusiveStartDate)
+        .where('date', isLessThan: exclusiveEndDate)
+        .get();
+
+    final reportMap = <String, CustomerReport>{};
+
+    // 2. Proses setiap pesanan
+    for (var doc in querySnapshot.docs) {
+      final order = app_order.Order.fromFirestore(doc);
+      
+      // Gunakan customerId jika ada, jika tidak, gunakan nama customer sebagai fallback
+      final customerId = order.customerId.isNotEmpty ? order.customerId : order.customer;
+
+      // Logika untuk menghitung total
+      double total = 0.0;
+      try {
+          String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9]'), '');
+          total = double.tryParse(cleanTotal) ?? 0.0;
+      } catch (e) {
+          total = 0.0; 
+      }
+
+      // Jika pelanggan belum ada di map, buat entri baru
+      reportMap.putIfAbsent(
+        customerId,
+        () => CustomerReport(
+          id: customerId,
+          name: order.customer, 
+          transactionCount: 0,
+          totalSpent: 0,
+          receivables: 0,
+          orders: [],
+        ),
+      );
+
+      final report = reportMap[customerId]!;
+
+      // Hitung piutang
+      final isUnpaid = order.paymentStatus.toLowerCase() == 'unpaid';
+      final isValidStatus = ['shipped', 'delivered'].contains(order.status.toLowerCase());
+      final newReceivables = report.receivables + (isUnpaid && isValidStatus ? total : 0);
+
+      // Perbarui laporan dengan data dari pesanan saat ini
+      reportMap[customerId] = report.copyWith(
+        transactionCount: report.transactionCount + 1,
+        totalSpent: report.totalSpent + total,
+        receivables: newReceivables,
+        orders: [...report.orders, order]..sort((a, b) => b.date.compareTo(a.date)),
+      );
+    }
+
+    // 3. Ubah map menjadi daftar dan urutkan berdasarkan total belanja
+    final reportList = reportMap.values.toList();
+    reportList.sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
+
+    return reportList;
+  }
+
 
   Future<void> markOrderAsPaid(String orderId) async {
     try {
@@ -125,10 +199,13 @@ class ReportService {
           !invalidOrderStates.contains(orderStatusLower)) {
         double total = 0.0;
         try {
+          // --- LOGIKA DIPERBAIKI & DISIMPLIFY ---
+          // Karena analyzer menunjukkan order.total selalu String,
+          // kita bisa langsung memprosesnya sebagai String.
           String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9]'), '');
           total = double.tryParse(cleanTotal) ?? 0.0;
         } catch (e) {
-          // Error handling
+          total = 0.0; // Fallback jika parsing gagal
         }
 
         receivableList.add(

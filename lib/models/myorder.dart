@@ -1,20 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import './order_product.dart';
-import './order.dart' as old_order; // Impor model lama dengan alias
+// PERBAIKAN: Beri alias pada impor untuk menghindari konflik nama
+import './order.dart' as app_order;
 
-// --- FUNGSI HELPER UNTUK PARSING YANG AMAN ---
-
+// --- FUNGSI HELPER TETAP SAMA ---
 Timestamp _parseDate(dynamic date) {
-  if (date is Timestamp) {
-    return date;
-  }
-  if (date is DateTime) {
-    return Timestamp.fromDate(date);
-  }
+  if (date is Timestamp) return date;
+  if (date is DateTime) return Timestamp.fromDate(date);
   return Timestamp.now();
 }
 
-// Helper baru untuk tanggal yang bisa null
 Timestamp? _parseDateOrNull(dynamic date) {
   if (date == null) return null;
   if (date is Timestamp) return date;
@@ -43,8 +38,9 @@ String? _parseStringOrNull(dynamic value) {
   return value.toString();
 }
 
-class Order {
+class MyOrder {
   final String id;
+  final String customerId;
   final String customer;
   final String customerPhone;
   final String customerAddress;
@@ -59,10 +55,11 @@ class Order {
   final List<OrderProduct> products;
   final Timestamp? updatedAt;
   final Timestamp? shippedAt;
-  final String? kasir; 
+  final String? kasir;
 
-  Order({
+  MyOrder({
     required this.id,
+    required this.customerId,
     required this.customer,
     required this.customerPhone,
     required this.customerAddress,
@@ -77,10 +74,10 @@ class Order {
     required this.products,
     this.updatedAt,
     this.shippedAt,
-    this.kasir, 
+    this.kasir,
   });
 
-  factory Order.fromFirestore(DocumentSnapshot doc) {
+  factory MyOrder.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     Map<String, dynamic> customerDetails =
         data['customerDetails'] as Map<String, dynamic>? ?? {};
@@ -95,8 +92,9 @@ class Order {
       totalString = '0';
     }
 
-    return Order(
+    return MyOrder(
       id: doc.id,
+      customerId: _parseString(data['customerId'], defaultValue: ''),
       customer: _parseString(data['customer'], defaultValue: 'N/A'),
       customerPhone:
           _parseString(customerDetails['whatsapp'], defaultValue: '-'),
@@ -120,60 +118,38 @@ class Order {
       updatedAt:
           data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
       shippedAt: _parseDateOrNull(data['shippedAt']),
-      kasir: _parseStringOrNull(data['kasir']), 
+      kasir: _parseStringOrNull(data['kasir']),
     );
   }
 
-  Map<String, dynamic> toFirestore() {
-    return {
-      'customer': customer,
-      'customerDetails': {
-        'name': customer,
-        'whatsapp': customerPhone,
-        'address': customerAddress,
-      },
-      'date': date,
-      'status': status,
-      'total': double.tryParse(total) ?? 0.0, 
-      'paymentMethod': paymentMethod,
-      'paymentStatus': paymentStatus,
-      'paymentProofUrl': paymentProofUrl,
-      'shippingMethod': shippingMethod,
-      'shippingFee': shippingFee,
-      'products': products.map((p) => p.toJson()).toList(),
-      'productIds': products.map((p) => p.productId).toList(),
-      'updatedAt': updatedAt ?? FieldValue.serverTimestamp(),
-      'shippedAt': shippedAt,
-      'kasir': kasir,
-    };
-  }
-
-  // DITAMBAHKAN: Konverter dari Order lama ke Order baru
-  factory Order.fromOldOrder(old_order.Order old) {
-    return Order(
-      id: old.id,
-      customer: old.customer,
-      customerPhone: old.customerPhone,
-      customerAddress: old.customerAddress,
-      date: old.date,
-      status: old.status,
-      total: old.total,
-      paymentMethod: old.paymentMethod,
-      paymentStatus: old.paymentStatus,
-      paymentProofUrl: old.paymentProofUrl,
-      shippingMethod: old.shippingMethod,
-      shippingFee: old.shippingFee,
-      products: old.products, // Asumsi OrderProduct tidak berubah
-      updatedAt: old.updatedAt,
-      shippedAt: old.shippedAt,
-      kasir: old.kasir,
+  // --- BARU: Factory untuk konversi dari app_order.Order ke MyOrder ---
+  factory MyOrder.fromOrder(app_order.Order order) {
+    return MyOrder(
+      id: order.id,
+      customerId: order.customerId,
+      customer: order.customer,
+      customerPhone: order.customerPhone,
+      customerAddress: order.customerAddress,
+      date: order.date,
+      status: order.status,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+      paymentStatus: order.paymentStatus,
+      paymentProofUrl: order.paymentProofUrl,
+      shippingMethod: order.shippingMethod,
+      shippingFee: order.shippingFee,
+      products: order.products,
+      updatedAt: order.updatedAt,
+      shippedAt: order.shippedAt,
+      kasir: order.kasir,
     );
   }
 
-  // DITAMBAHKAN: Konverter dari Order baru ke Order lama
-  old_order.Order toOldOrder() {
-    return old_order.Order(
+  // Konversi dari MyOrder ke app_order.Order (model utama)
+  app_order.Order toOrder() {
+    return app_order.Order(
       id: id,
+      customerId: customerId,
       customer: customer,
       customerPhone: customerPhone,
       customerAddress: customerAddress,
@@ -185,59 +161,10 @@ class Order {
       paymentProofUrl: paymentProofUrl,
       shippingMethod: shippingMethod,
       shippingFee: shippingFee,
-      products: products, // Asumsi OrderProduct tidak berubah
+      products: products,
       updatedAt: updatedAt,
       shippedAt: shippedAt,
       kasir: kasir,
-    );
-  }
-
-  Order copyWith({
-    String? id,
-    String? customer,
-    String? customerPhone,
-    String? customerAddress,
-    Timestamp? date,
-    String? status,
-    String? total,
-    String? paymentMethod,
-    String? paymentStatus,
-    String? paymentProofUrl,
-    bool allowNullPaymentProofUrl = false,
-    String? shippingMethod,
-    double? shippingFee,
-    bool allowNullShippingFee = false,
-    List<OrderProduct>? products,
-    Timestamp? updatedAt,
-    bool allowNullUpdatedAt = false,
-    Timestamp? shippedAt,
-    bool allowNullShippedAt = false,
-    String? kasir, 
-    bool allowNullKasir = false,
-  }) {
-    return Order(
-      id: id ?? this.id,
-      customer: customer ?? this.customer,
-      customerPhone: customerPhone ?? this.customerPhone,
-      customerAddress: customerAddress ?? this.customerAddress,
-      date: date ?? this.date,
-      status: status ?? this.status,
-      total: total ?? this.total,
-      paymentMethod: paymentMethod ?? this.paymentMethod,
-      paymentStatus: paymentStatus ?? this.paymentStatus,
-      paymentProofUrl: allowNullPaymentProofUrl
-          ? paymentProofUrl
-          : (paymentProofUrl ?? this.paymentProofUrl),
-      shippingMethod: shippingMethod ?? this.shippingMethod,
-      shippingFee: allowNullShippingFee
-          ? shippingFee
-          : (shippingFee ?? this.shippingFee),
-      products: products ?? this.products,
-      updatedAt: allowNullUpdatedAt ? updatedAt : (updatedAt ?? this.updatedAt),
-      shippedAt: allowNullShippedAt ? shippedAt : (shippedAt ?? this.shippedAt),
-      kasir: allowNullKasir
-          ? kasir
-          : (kasir ?? this.kasir), 
     );
   }
 }

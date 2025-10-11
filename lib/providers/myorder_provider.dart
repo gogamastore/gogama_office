@@ -3,13 +3,13 @@ import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/myorder.dart';
-// import '../models/order.dart' as old_order; // DIHAPUS: Impor tidak digunakan
 import '../models/order_item.dart';
 import '../services/order_service.dart';
 
 final myOrderServiceProvider = Provider<OrderService>((ref) => OrderService());
 
-class MyOrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
+// --- NOTIFIER DIPERBARUI UNTUK BEKERJA DENGAN MyOrder ---
+class MyOrderNotifier extends StateNotifier<AsyncValue<List<MyOrder>>> {
   final OrderService _orderService;
 
   MyOrderNotifier(this._orderService) : super(const AsyncValue.loading()) {
@@ -19,9 +19,13 @@ class MyOrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
   Future<void> _fetchOrders() async {
     state = const AsyncValue.loading();
     try {
-      final oldOrders = await _orderService.getAllOrders();
-      final newOrders = oldOrders.map((o) => Order.fromOldOrder(o)).toList();
-      if (mounted) state = AsyncValue.data(newOrders);
+      // 1. Ambil data mentah (sebagai app_order.Order) dari service
+      final ordersFromService = await _orderService.getAllOrders();
+      
+      // 2. PERBAIKAN: Gunakan factory .fromOrder() untuk konversi yang bersih
+      final myOrders = ordersFromService.map((order) => MyOrder.fromOrder(order)).toList();
+
+      if (mounted) state = AsyncValue.data(myOrders);
     } catch (e, s) {
       if (mounted) state = AsyncValue.error(e, s);
     }
@@ -29,17 +33,6 @@ class MyOrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
 
   Future<void> refresh() async {
     await _fetchOrders();
-  }
-
-  Future<bool> createOrder(Order order) async {
-    try {
-      await _orderService.createOrder(order.toOldOrder());
-      await refresh();
-      return true;
-    } catch (e, s) {
-      log('Gagal membuat pesanan', error: e, stackTrace: s);
-      return false;
-    }
   }
 
   Future<bool> createCustomerOrder(Map<String, dynamic> orderData) async {
@@ -82,11 +75,13 @@ class MyOrderNotifier extends StateNotifier<AsyncValue<List<Order>>> {
   }
 }
 
+// --- PROVIDER DIPERBARUI ---
 final myOrderProvider =
-    StateNotifierProvider<MyOrderNotifier, AsyncValue<List<Order>>>((ref) {
+    StateNotifierProvider<MyOrderNotifier, AsyncValue<List<MyOrder>>>((ref) {
   return MyOrderNotifier(ref.watch(myOrderServiceProvider));
 });
 
+// --- PROVIDER LAINNYA TETAP SAMA DAN SEKARANG BEKERJA DENGAN MyOrder ---
 final myOrderStatusCountsProvider = Provider.autoDispose<Map<String, int>>((ref) {
   final orders = ref.watch(myOrderProvider).value ?? [];
   final counts = {
@@ -108,7 +103,7 @@ final myOrderFilterProvider = StateProvider<String>((ref) => 'processing');
 
 final myOrderSearchQueryProvider = StateProvider<String>((ref) => '');
 
-final filteredMyOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
+final filteredMyOrdersProvider = Provider.autoDispose<List<MyOrder>>((ref) {
   final statusFilter = ref.watch(myOrderFilterProvider);
   final searchQuery = ref.watch(myOrderSearchQueryProvider).toLowerCase();
   final allOrders = ref.watch(myOrderProvider).value ?? [];
@@ -134,7 +129,7 @@ final filteredMyOrdersProvider = Provider.autoDispose<List<Order>>((ref) {
 });
 
 final myOrdersByStatusProvider =
-    Provider.family.autoDispose<AsyncValue<List<Order>>, String>((ref, status) {
+    Provider.family.autoDispose<AsyncValue<List<MyOrder>>, String>((ref, status) {
   final allOrdersAsync = ref.watch(myOrderProvider);
   return allOrdersAsync.when(
     data: (orders) =>
@@ -145,8 +140,12 @@ final myOrdersByStatusProvider =
 });
 
 final myOrderDetailsProvider =
-    FutureProvider.family.autoDispose<Order?, String>((ref, orderId) async {
-  final oldOrder = await ref.watch(myOrderServiceProvider).getOrderById(orderId);
-  if (oldOrder == null) return null;
-  return Order.fromOldOrder(oldOrder);
+    FutureProvider.family.autoDispose<MyOrder?, String>((ref, orderId) async {
+  final orderFromService = await ref.watch(myOrderServiceProvider).getOrderById(orderId);
+  if (orderFromService == null) return null;
+
+  // PERBAIKAN: Gunakan konversi langsung
+  return MyOrder.fromOrder(orderFromService);
 });
+
+// --- KELAS _FakeDocSnapshot DIHAPUS ---

@@ -44,6 +44,7 @@ String? _parseStringOrNull(dynamic value) {
 
 class Order {
   final String id;
+  final String customerId; // <-- BARU: Field untuk ID pelanggan
   final String customer;
   final String customerPhone;
   final String customerAddress;
@@ -58,10 +59,11 @@ class Order {
   final List<OrderProduct> products;
   final Timestamp? updatedAt;
   final Timestamp? shippedAt;
-  final String? kasir; // <-- BARU: Field untuk nama kasir
+  final String? kasir;
 
   Order({
     required this.id,
+    required this.customerId, // <-- BARU: Ditambahkan di konstruktor
     required this.customer,
     required this.customerPhone,
     required this.customerAddress,
@@ -76,7 +78,7 @@ class Order {
     required this.products,
     this.updatedAt,
     this.shippedAt,
-    this.kasir, // <-- BARU: Ditambahkan di konstruktor
+    this.kasir,
   });
 
   factory Order.fromFirestore(DocumentSnapshot doc) {
@@ -96,6 +98,7 @@ class Order {
 
     return Order(
       id: doc.id,
+      customerId: _parseString(data['customerId'], defaultValue: ''), // <-- BARU: Logika parsing
       customer: _parseString(data['customer'], defaultValue: 'N/A'),
       customerPhone:
           _parseString(customerDetails['whatsapp'], defaultValue: '-'),
@@ -119,13 +122,13 @@ class Order {
       updatedAt:
           data['updatedAt'] != null ? _parseDate(data['updatedAt']) : null,
       shippedAt: _parseDateOrNull(data['shippedAt']),
-      kasir: _parseStringOrNull(data['kasir']), // <-- BARU: Logika parsing
+      kasir: _parseStringOrNull(data['kasir']),
     );
   }
 
-    // BARU: Metode untuk mengubah Order menjadi Map untuk Firestore
   Map<String, dynamic> toFirestore() {
     return {
+      'customerId': customerId, // <-- BARU: Ditambahkan di toFirestore
       'customer': customer,
       'customerDetails': {
         'name': customer,
@@ -134,7 +137,7 @@ class Order {
       },
       'date': date,
       'status': status,
-      'total': double.tryParse(total) ?? 0.0, // Simpan sebagai double
+      'total': double.tryParse(total) ?? 0.0,
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
       'paymentProofUrl': paymentProofUrl,
@@ -150,6 +153,7 @@ class Order {
 
   Order copyWith({
     String? id,
+    String? customerId, // <-- BARU: Ditambahkan di copyWith
     String? customer,
     String? customerPhone,
     String? customerAddress,
@@ -168,11 +172,12 @@ class Order {
     bool allowNullUpdatedAt = false,
     Timestamp? shippedAt,
     bool allowNullShippedAt = false,
-    String? kasir, // <-- BARU: Ditambahkan di copyWith
+    String? kasir,
     bool allowNullKasir = false,
   }) {
     return Order(
       id: id ?? this.id,
+      customerId: customerId ?? this.customerId, // <-- BARU: Logika copyWith
       customer: customer ?? this.customer,
       customerPhone: customerPhone ?? this.customerPhone,
       customerAddress: customerAddress ?? this.customerAddress,
@@ -193,7 +198,7 @@ class Order {
       shippedAt: allowNullShippedAt ? shippedAt : (shippedAt ?? this.shippedAt),
       kasir: allowNullKasir
           ? kasir
-          : (kasir ?? this.kasir), // <-- BARU: Logika copyWith
+          : (kasir ?? this.kasir),
     );
   }
 }

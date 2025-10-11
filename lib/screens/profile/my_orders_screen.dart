@@ -5,8 +5,8 @@ import 'package:ionicons/ionicons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/staff_model.dart';
-import '../../providers/myorder_provider.dart'; // GANTI: Menggunakan provider yang benar
-import '../../models/myorder.dart';
+import '../../providers/myorder_provider.dart';
+import '../../models/myorder.dart'; // Menggunakan MyOrder
 import '../../services/staff_service.dart';
 import '../orders/order_detail_screen.dart';
 
@@ -55,7 +55,7 @@ class MyOrdersScreen extends ConsumerWidget {
                           horizontal: 12, vertical: 8),
                       itemCount: filteredOrders.length,
                       itemBuilder: (context, index) {
-                        final order = filteredOrders[index];
+                        final order = filteredOrders[index]; // Ini sekarang adalah MyOrder
                         return _buildOrderCard(context, ref, order);
                       },
                     );
@@ -168,7 +168,7 @@ class MyOrdersScreen extends ConsumerWidget {
   }
 
   void _showProcessOrderDialog(
-      BuildContext context, WidgetRef ref, Order order) {
+      BuildContext context, WidgetRef ref, MyOrder order) { // Menggunakan MyOrder
     final formKey = GlobalKey<FormState>();
     String? selectedAdminName;
 
@@ -197,7 +197,7 @@ class MyOrdersScreen extends ConsumerWidget {
                               labelText: 'Di Validasi oleh',
                               border: OutlineInputBorder(),
                             ),
-                            initialValue: selectedAdminName, // PERBAIKAN: Menggunakan initialValue
+                            initialValue: selectedAdminName,
                             items: admins
                                 .map<DropdownMenuItem<String>>((Staff admin) {
                               return DropdownMenuItem<String>(
@@ -271,7 +271,7 @@ class MyOrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
+  Widget _buildOrderCard(BuildContext context, WidgetRef ref, MyOrder order) { // Menggunakan MyOrder
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final double totalValue = double.tryParse(order.total) ?? 0.0;
@@ -460,7 +460,7 @@ class MyOrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPaymentButton(BuildContext context, WidgetRef ref, Order order) {
+  Widget _buildPaymentButton(BuildContext context, WidgetRef ref, MyOrder order) { // Menggunakan MyOrder
     final bool isUnpaid = order.paymentStatus.toLowerCase() == 'unpaid';
     final bool hasProof =
         order.paymentProofUrl != null && order.paymentProofUrl!.isNotEmpty;
