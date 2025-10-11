@@ -9,7 +9,27 @@ import '../models/purchase.dart';
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // --- FUNGSI BARU UNTUK PROSES PEMBAYARAN UTANG ---
+  Future<void> markOrderAsPaid(String orderId) async {
+    try {
+      final orderRef = _db.collection('orders').doc(orderId);
+      await orderRef.update({'paymentStatus': 'paid'});
+    } catch (e) {
+      throw Exception('Gagal memperbarui status pembayaran: $e');
+    }
+  }
+
+  Future<app_order.Order> getOrderById(String orderId) async {
+    try {
+      final doc = await _db.collection('orders').doc(orderId).get();
+      if (doc.exists) {
+        return app_order.Order.fromFirestore(doc);
+      }
+      throw Exception('Pesanan tidak ditemukan.');
+    } catch (e) {
+      throw Exception('Gagal mengambil detail pesanan: $e');
+    }
+  }
+
   Future<void> processPurchasePayment({
     required String purchaseId,
     required String paymentMethod,
@@ -21,11 +41,10 @@ class ReportService {
       'paymentStatus': 'paid',
       'paymentMethod': paymentMethod,
       'paymentNotes': notes,
-      'paidAt': FieldValue.serverTimestamp(), // Catat waktu pembayaran
+      'paidAt': FieldValue.serverTimestamp(),
     });
   }
 
-  // --- FUNGSI LAPORAN UTANG DAGANG (DIPERBAIKI FINAL) ---
   Future<List<Purchase>> generatePayableReport({
     required DateTime startDate,
     required DateTime endDate,
@@ -52,8 +71,6 @@ class ReportService {
 
     return payableList;
   }
-
-  // --- FUNGSI-FUNGSI LAINNYA (TETAP SAMA) ---
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
       _fetchOrdersByPaymentStatus(
@@ -173,7 +190,6 @@ class ReportService {
 
     final List<List<QueryDocumentSnapshot>> results =
         await Future.wait(futures);
-    // --- PERBAIKAN DI SINI ---
     final List<QueryDocumentSnapshot> allOrderDocs =
         results.expand((docs) => docs).toList();
 

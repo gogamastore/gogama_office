@@ -47,15 +47,17 @@ service cloud.firestore {
         // Admins can manage all orders. This includes listing them for reports.
         allow read, delete: if isAdmin();
 
-        // Resellers can create orders for themselves
-        allow create: if request.auth.uid == request.resource.data.customerId;
+        // Admin can create and Resellers can create orders for themselves
+        allow create: if isAdmin() || request.auth.uid == request.resource.data.customerId;
 
-        // Resellers can only read their own orders.
-        allow get, list: if request.auth.uid == resource.data.customerId;
+        // Admin dapat melihat semua pesanan,
+        // ATAU reseller hanya dapat melihat pesanan mereka sendiri.
+        allow get, list: if isAdmin() || request.auth.uid == resource.data.customerId;
         
         // Resellers can update their own order only for specific fields (e.g., cancelling or uploading proof)
         allow update: if isAdmin() || (request.auth.uid == resource.data.customerId &&
-                        (request.resource.data.status == 'Cancelled' || 
+                        (request.resource.data.status == 'Cancelled' ||
+                        request.resource.data.status == 'delivered' ||
                          request.resource.data.paymentProofUrl != resource.data.paymentProofUrl));
     }
     match /payment_proofs/{proofId} {
