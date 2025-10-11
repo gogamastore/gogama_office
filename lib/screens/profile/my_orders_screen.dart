@@ -5,8 +5,8 @@ import 'package:ionicons/ionicons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/staff_model.dart';
-import '../../providers/order_provider.dart';
-import '../../models/order.dart';
+import '../../providers/myorder_provider.dart'; // GANTI: Menggunakan provider yang benar
+import '../../models/myorder.dart';
 import '../../services/staff_service.dart';
 import '../orders/order_detail_screen.dart';
 
@@ -17,13 +17,14 @@ class MyOrdersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Override filter jika masih 'pending' saat masuk ke halaman ini
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (ref.read(orderFilterProvider) == 'pending') {
-        ref.read(orderFilterProvider.notifier).state = 'processing';
+      final currentFilter = ref.read(myOrderFilterProvider);
+      if (currentFilter == 'pending') {
+        ref.read(myOrderFilterProvider.notifier).state = 'processing';
       }
     });
 
-    final ordersAsyncValue = ref.watch(orderProvider);
-    final filteredOrders = ref.watch(filteredOrdersProvider);
+    final ordersAsyncValue = ref.watch(myOrderProvider);
+    final filteredOrders = ref.watch(filteredMyOrdersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +38,7 @@ class MyOrdersScreen extends ConsumerWidget {
             _buildFiltersContainer(context, ref),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => ref.read(orderProvider.notifier).refresh(),
+                onRefresh: () => ref.read(myOrderProvider.notifier).refresh(),
                 child: ordersAsyncValue.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
@@ -45,8 +46,8 @@ class MyOrdersScreen extends ConsumerWidget {
                       Center(child: Text('Terjadi Kesalahan: $err')),
                   data: (_) {
                     if (filteredOrders.isEmpty) {
-                      final activeFilter = ref.watch(orderFilterProvider);
-                      final searchQuery = ref.watch(orderSearchQueryProvider);
+                      final activeFilter = ref.watch(myOrderFilterProvider);
+                      final searchQuery = ref.watch(myOrderSearchQueryProvider);
                       return _buildEmptyState(activeFilter, searchQuery);
                     }
                     return ListView.builder(
@@ -73,7 +74,7 @@ class MyOrdersScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       child: TextField(
         onChanged: (value) {
-          ref.read(orderSearchQueryProvider.notifier).state = value;
+          ref.read(myOrderSearchQueryProvider.notifier).state = value;
         },
         decoration: InputDecoration(
           hintText: 'Cari nama, No. Pesanan, atau SKU...',
@@ -90,10 +91,9 @@ class MyOrdersScreen extends ConsumerWidget {
   }
 
   Widget _buildFiltersContainer(BuildContext context, WidgetRef ref) {
-    final activeFilter = ref.watch(orderFilterProvider);
-    final counts = ref.watch(orderStatusCountsProvider);
+    final activeFilter = ref.watch(myOrderFilterProvider);
+    final counts = ref.watch(myOrderStatusCountsProvider);
 
-    // Menghapus filter 'pending'
     final statusFilters = [
       {'key': 'processing', 'label': 'Perlu Dikirim'},
       {'key': 'shipped', 'label': 'Dikirim'},
@@ -113,7 +113,7 @@ class MyOrdersScreen extends ConsumerWidget {
             final isActive = activeFilter == key;
 
             return GestureDetector(
-              onTap: () => ref.read(orderFilterProvider.notifier).state = key,
+              onTap: () => ref.read(myOrderFilterProvider.notifier).state = key,
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 padding:
@@ -167,7 +167,8 @@ class MyOrdersScreen extends ConsumerWidget {
     );
   }
 
-  void _showProcessOrderDialog(BuildContext context, WidgetRef ref, Order order) {
+  void _showProcessOrderDialog(
+      BuildContext context, WidgetRef ref, Order order) {
     final formKey = GlobalKey<FormState>();
     String? selectedAdminName;
 
@@ -186,7 +187,8 @@ class MyOrdersScreen extends ConsumerWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Pilih nama Anda untuk melanjutkan proses validasi.'),
+                        const Text(
+                            'Pilih nama Anda untuk melanjutkan proses validasi.'),
                         const SizedBox(height: 24),
                         adminUsersAsyncValue.when(
                           data: (admins) => DropdownButtonFormField<String>(
@@ -195,8 +197,9 @@ class MyOrdersScreen extends ConsumerWidget {
                               labelText: 'Di Validasi oleh',
                               border: OutlineInputBorder(),
                             ),
-                            value: selectedAdminName,
-                            items: admins.map<DropdownMenuItem<String>>((Staff admin) {
+                            initialValue: selectedAdminName, // PERBAIKAN: Menggunakan initialValue
+                            items: admins
+                                .map<DropdownMenuItem<String>>((Staff admin) {
                               return DropdownMenuItem<String>(
                                 value: admin.name,
                                 child: Text(admin.name),
@@ -207,10 +210,12 @@ class MyOrdersScreen extends ConsumerWidget {
                                 selectedAdminName = newValue;
                               });
                             },
-                            validator: (value) =>
-                                value == null || value.isEmpty ? 'Harap pilih nama validator' : null,
+                            validator: (value) => value == null || value.isEmpty
+                                ? 'Harap pilih nama validator'
+                                : null,
                           ),
-                          loading: () => const Center(child: CircularProgressIndicator()),
+                          loading: () =>
+                              const Center(child: CircularProgressIndicator()),
                           error: (err, stack) =>
                               Center(child: Text('Gagal memuat admin: $err')),
                         ),
@@ -226,21 +231,30 @@ class MyOrdersScreen extends ConsumerWidget {
                       onPressed: () async {
                         if (formKey.currentState!.validate()) {
                           final navigator = Navigator.of(context);
-                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          final scaffoldMessenger =
+                              ScaffoldMessenger.of(context);
                           try {
-                            await ref.read(orderServiceProvider).updateOrderStatus(order.id, 'processing');
-                            await ref.read(orderServiceProvider).setValidationTimestamp(order.id);
-                            await ref.read(orderServiceProvider).setOrderValidator(order.id, selectedAdminName!);
-                            
-                            navigator.pop();
-                            ref.read(orderProvider.notifier).refresh();
+                            await ref
+                                .read(myOrderServiceProvider)
+                                .updateOrderStatus(order.id, 'processing');
+                            await ref
+                                .read(myOrderServiceProvider)
+                                .setValidationTimestamp(order.id);
+                            await ref
+                                .read(myOrderServiceProvider)
+                                .setOrderValidator(
+                                    order.id, selectedAdminName!);
 
+                            navigator.pop();
+                            ref.read(myOrderProvider.notifier).refresh();
                           } catch (e) {
-                            if(navigator.canPop()){
+                            if (navigator.canPop()) {
                               navigator.pop();
                             }
                             scaffoldMessenger.showSnackBar(
-                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              SnackBar(
+                                  content: Text('Error: $e'),
+                                  backgroundColor: Colors.red),
                             );
                           }
                         }
@@ -257,7 +271,6 @@ class MyOrdersScreen extends ConsumerWidget {
     );
   }
 
-
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
@@ -270,7 +283,7 @@ class MyOrdersScreen extends ConsumerWidget {
           MaterialPageRoute(
             builder: (context) => OrderDetailScreen(orderId: order.id),
           ),
-        ).then((_) => ref.read(orderProvider.notifier).refresh());
+        ).then((_) => ref.read(myOrderProvider.notifier).refresh());
       },
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -408,16 +421,18 @@ class MyOrdersScreen extends ConsumerWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                         final nextStatus = order.status == 'pending' ? 'processing' : (order.status == 'processing' ? 'shipped' : '');
+                        final nextStatus = order.status == 'pending'
+                            ? 'processing'
+                            : (order.status == 'processing' ? 'shipped' : '');
 
                         if (order.status == 'pending') {
-                           _showProcessOrderDialog(context, ref, order);
+                          _showProcessOrderDialog(context, ref, order);
                         } else if (nextStatus.isNotEmpty) {
                           ref
-                              .read(orderServiceProvider)
+                              .read(myOrderServiceProvider)
                               .updateOrderStatus(order.id, nextStatus)
                               .then((_) {
-                            ref.read(orderProvider.notifier).refresh();
+                            ref.read(myOrderProvider.notifier).refresh();
                           });
                         }
                       },
@@ -453,8 +468,8 @@ class MyOrdersScreen extends ConsumerWidget {
     if (isUnpaid) {
       return TextButton.icon(
         onPressed: () async {
-           final scaffoldMessenger = ScaffoldMessenger.of(context);
-           final navigator = Navigator.of(context);
+          final scaffoldMessenger = ScaffoldMessenger.of(context);
+          final navigator = Navigator.of(context);
 
           final bool? confirmed = await showDialog(
             context: context,
@@ -478,8 +493,8 @@ class MyOrdersScreen extends ConsumerWidget {
 
           if (confirmed == true) {
             try {
-              await ref.read(orderServiceProvider).markOrderAsPaid(order.id);
-              ref.read(orderProvider.notifier).refresh();
+              await ref.read(myOrderServiceProvider).markOrderAsPaid(order.id);
+              ref.read(myOrderProvider.notifier).refresh();
               scaffoldMessenger.showSnackBar(
                 const SnackBar(
                     content: Text('Pesanan ditandai lunas.'),
@@ -512,9 +527,9 @@ class MyOrdersScreen extends ConsumerWidget {
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                 if (!await launchUrl(url,
                     mode: LaunchMode.externalApplication)) {
-                    scaffoldMessenger.showSnackBar(
-                      const SnackBar(content: Text('Gagal membuka URL.')),
-                    );
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(content: Text('Gagal membuka URL.')),
+                  );
                 }
               }
             : null,

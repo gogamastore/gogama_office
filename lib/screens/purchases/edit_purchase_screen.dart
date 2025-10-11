@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:myapp/models/purchase_cart_item.dart';
 import 'package:myapp/services/purchase_service.dart';
+import 'package:myapp/widgets/purchases/add_purchase_item_dialog.dart';
 import '../../models/purchase_transaction.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/purchase_report_provider.dart';
@@ -37,7 +39,6 @@ class EditPurchaseScreen extends ConsumerStatefulWidget {
 
 class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
   late List<_EditableItem> _items;
-  // --- PERBAIKAN: Simpan controllers di state ---
   late List<TextEditingController> _priceControllers;
   bool _isInitialized = false;
   bool _isSaving = false;
@@ -48,7 +49,6 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
     super.initState();
     _items = [];
     _priceControllers = [];
-    // Inisialisasi data dari widget
     _initializeItemsFromWidget();
   }
 
@@ -65,10 +65,8 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
       );
     }).toList();
 
-    // --- PERBAIKAN: Buat controller hanya sekali ---
     _priceControllers = _items.map((item) {
       final controller = TextEditingController(text: item.purchasePrice.toStringAsFixed(0));
-      // Listener untuk update total saat harga berubah
       controller.addListener(() {
         final newPrice = double.tryParse(controller.text) ?? 0.0;
         if (item.purchasePrice != newPrice) {
@@ -80,8 +78,6 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
       return controller;
     }).toList();
 
-    // Menandai bahwa inisialisasi selesai
-    // Gunakan addPostFrameCallback untuk memastikan build pertama selesai
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -93,11 +89,43 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
   
   @override
   void dispose() {
-    // --- PERBAIKAN: Hapus semua controller untuk mencegah memory leak ---
     for (var controller in _priceControllers) {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  // --- FUNGSI BARU UNTUK MENAMBAH ITEM ---
+  Future<void> _addItem() async {
+    final newItem = await showDialog<PurchaseCartItem>(
+      context: context,
+      builder: (context) => const AddPurchaseItemDialog(),
+    );
+
+    if (newItem != null && mounted) {
+      final productImages = ref.read(productImagesProvider).asData?.value ?? {};
+      setState(() {
+        final newEditableItem = _EditableItem(
+          productId: newItem.product.id,
+          productName: newItem.product.name,
+          quantity: newItem.quantity,
+          purchasePrice: newItem.purchasePrice,
+          imageUrl: productImages[newItem.product.id],
+        );
+        _items.add(newEditableItem);
+
+        final newController = TextEditingController(text: newEditableItem.purchasePrice.toStringAsFixed(0));
+        newController.addListener(() {
+           final newPrice = double.tryParse(newController.text) ?? 0.0;
+           if (newEditableItem.purchasePrice != newPrice) {
+              setState(() {
+                newEditableItem.purchasePrice = newPrice;
+              });
+           }
+        });
+        _priceControllers.add(newController);
+      });
+    }
   }
 
   void _updateQuantity(int index, int newQuantity) {
@@ -110,9 +138,7 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
 
   void _removeItem(int index) {
     setState(() {
-      // Hapus item dari data
       _items.removeAt(index);
-      // Hapus controller yang sesuai dan pastikan di-dispose
       _priceControllers.removeAt(index).dispose();
     });
   }
@@ -181,6 +207,15 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Edit Transaksi #${widget.transaction.id.substring(0, 7)}...'),
+        // --- TOMBOL TAMBAH PRODUK ---
+        actions: [
+          IconButton(
+            icon: const Icon(Ionicons.add_outline),
+            onPressed: _addItem,
+            tooltip: 'Tambah Produk',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: !_isInitialized
           ? const Center(child: CircularProgressIndicator())
@@ -192,7 +227,6 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
                     itemCount: _items.length,
                     itemBuilder: (context, index) {
                       final item = _items[index];
-                      // --- PERBAIKAN: Gunakan controller yang sudah ada ---
                       final priceController = _priceControllers[index];
                       return _buildEditableItemCard(item, index, priceController);
                     },
@@ -236,7 +270,6 @@ class _EditPurchaseScreenState extends ConsumerState<EditPurchaseScreen> {
                       SizedBox(
                         height: 40,
                         child: TextField(
-                          // --- PERBAIKAN: Gunakan controller dari state ---
                           controller: priceController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(

@@ -4,8 +4,13 @@ import '../../models/purchase.dart';
 
 class PurchaseDetailDialog extends StatelessWidget {
   final Purchase purchase;
+  final VoidCallback? onPayAction;
 
-  const PurchaseDetailDialog({super.key, required this.purchase});
+  const PurchaseDetailDialog({
+    super.key,
+    required this.purchase,
+    this.onPayAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,19 +21,7 @@ class PurchaseDetailDialog extends StatelessWidget {
     );
     final dateFormatter = DateFormat('EEEE, dd MMMM yyyy', 'id_ID');
 
-    // --- LOGIKA UNTUK STATUS TRANSAKSI ---
-    Widget statusWidget;
-    if (purchase.paymentMethod.toLowerCase() == 'credit') {
-      statusWidget = const Text(
-        'Kredit',
-        style: TextStyle(
-          color: Colors.red,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-    } else {
-      statusWidget = Text(purchase.status);
-    }
+    bool isUnpaid = purchase.paymentStatus?.toLowerCase() != 'paid';
 
     return AlertDialog(
       title: Text('Detail Transaksi #${purchase.purchaseNumber}'),
@@ -43,12 +36,10 @@ class PurchaseDetailDialog extends StatelessWidget {
               _buildDetailRow('Tanggal:', Text(dateFormatter.format(purchase.date))),
               _buildDetailRow('Total:', Text(currencyFormatter.format(purchase.totalAmount))),
               _buildDetailRow('Metode Pembayaran:', Text(purchase.paymentMethod)),
-              // --- MENGGUNAKAN WIDGET STATUS YANG SUDAH DIBUAT ---
-              _buildDetailRow('Status Transaksi:', statusWidget),
+              _buildDetailRow('Status Pembayaran:', _buildStatusChip(purchase.paymentStatus ?? 'unpaid')),
               const Divider(height: 30, thickness: 1),
               const Text('Daftar Barang:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 10),
-              // --- MEMBUAT DAFTAR BARANG SCROLLABLE ---
               _buildItemsTable(context, currencyFormatter),
             ],
           ),
@@ -57,15 +48,38 @@ class PurchaseDetailDialog extends StatelessWidget {
       actions: <Widget>[
         TextButton(
           child: const Text('Tutup'),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
+          onPressed: () => Navigator.of(context).pop(),
         ),
+        if (isUnpaid && onPayAction != null)
+          ElevatedButton(
+            onPressed: onPayAction,
+            child: const Text('Pembayaran'),
+          ),
       ],
     );
   }
 
-  // Diperbarui untuk menerima Widget agar lebih fleksibel
+  Widget _buildStatusChip(String status) {
+    Color chipColor;
+    String label;
+    switch (status.toLowerCase()) {
+      case 'paid':
+        chipColor = Colors.green;
+        label = 'Lunas';
+        break;
+      case 'unpaid':
+      default:
+        chipColor = Colors.orange;
+        label = 'Belum Lunas';
+        break;
+    }
+    return Chip(
+      label: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      backgroundColor: chipColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    );
+  }
+
   Widget _buildDetailRow(String label, Widget valueWidget) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -83,7 +97,6 @@ class PurchaseDetailDialog extends StatelessWidget {
   }
 
   Widget _buildItemsTable(BuildContext context, NumberFormat currencyFormatter) {
-    // --- DIBUNGKUS DENGAN WIDGET SCROLL ---
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: SingleChildScrollView(

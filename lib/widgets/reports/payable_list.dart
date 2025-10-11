@@ -1,19 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/purchase.dart';
-import './purchase_detail_dialog.dart'; // <-- 1. IMPORT DIALOG BARU
+import './purchase_detail_dialog.dart';
 
 class PayableList extends StatelessWidget {
   final List<Purchase> reportData;
+  // --- TAMBAHKAN CALLBACK UNTUK MEMULAI PEMBAYARAN ---
+  final Function(Purchase) onInitiatePayment;
 
-  const PayableList({super.key, required this.reportData});
+  const PayableList({
+    super.key,
+    required this.reportData,
+    required this.onInitiatePayment,
+  });
 
-  // --- FUNGSI UNTUK MENAMPILKAN DIALOG ---
   void _showDetailDialog(BuildContext context, Purchase purchase) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return PurchaseDetailDialog(purchase: purchase);
+        return PurchaseDetailDialog(
+          purchase: purchase,
+          // --- TERUSKAN AKSI PEMBAYARAN ---
+          onPayAction: () {
+            // Tutup dialog detail dulu, lalu panggil aksi pembayaran
+            Navigator.of(context).pop(); 
+            onInitiatePayment(purchase);
+          },
+        );
       },
     );
   }
@@ -33,7 +46,7 @@ class PayableList extends StatelessWidget {
         child: DataTable(
           headingTextStyle: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
           columnSpacing: 20,
-          showCheckboxColumn: false, // Menghilangkan checkbox default
+          showCheckboxColumn: false,
           columns: const [
             DataColumn(label: Text('Tanggal')),
             DataColumn(label: Text('Supplier')),
@@ -43,8 +56,8 @@ class PayableList extends StatelessWidget {
             DataColumn(label: Text('Status Transaksi')),
           ],
           rows: reportData.map((purchase) {
+            bool isUnpaid = purchase.paymentStatus?.toLowerCase() != 'paid';
             return DataRow(
-              // --- 2. TAMBAHKAN AKSI ON-CLICK ---
               onSelectChanged: (isSelected) {
                 if (isSelected != null) {
                   _showDetailDialog(context, purchase);
@@ -56,12 +69,14 @@ class PayableList extends StatelessWidget {
                 DataCell(Text(currencyFormatter.format(purchase.totalAmount))),
                 DataCell(Text(purchase.paymentMethod)),
                 DataCell(
-                  Text(
-                    'Kredit',
-                    style: TextStyle(
-                      color: Colors.orange[800],
-                      fontWeight: FontWeight.bold,
+                  Chip(
+                    label: Text(
+                      isUnpaid ? 'Belum Lunas' : 'Lunas',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
+                    backgroundColor: isUnpaid ? Colors.orange.shade800 : Colors.green.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
                 DataCell(Text(purchase.status)),

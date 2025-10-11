@@ -9,6 +9,22 @@ import '../models/purchase.dart';
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // --- FUNGSI BARU UNTUK PROSES PEMBAYARAN UTANG ---
+  Future<void> processPurchasePayment({
+    required String purchaseId,
+    required String paymentMethod,
+    String? notes,
+  }) async {
+    final purchaseRef = _db.collection('purchase_transactions').doc(purchaseId);
+
+    await purchaseRef.update({
+      'paymentStatus': 'paid',
+      'paymentMethod': paymentMethod,
+      'paymentNotes': notes,
+      'paidAt': FieldValue.serverTimestamp(), // Catat waktu pembayaran
+    });
+  }
+
   // --- FUNGSI LAPORAN UTANG DAGANG (DIPERBAIKI FINAL) ---
   Future<List<Purchase>> generatePayableReport({
     required DateTime startDate,
@@ -28,8 +44,6 @@ class ReportService {
 
     final snapshot = await query.get();
 
-    // KESALAHAN ADA DI SINI. FILTER 'paymentStatus' DIHAPUS.
-    // Sekarang kita hanya mengambil semua yang 'paymentMethod'-nya kredit.
     final List<Purchase> payableList = snapshot.docs
         .map((doc) => Purchase.fromMap(doc.id, doc.data()))
         .toList();
@@ -159,6 +173,7 @@ class ReportService {
 
     final List<List<QueryDocumentSnapshot>> results =
         await Future.wait(futures);
+    // --- PERBAIKAN DI SINI ---
     final List<QueryDocumentSnapshot> allOrderDocs =
         results.expand((docs) => docs).toList();
 
@@ -214,7 +229,6 @@ class ReportService {
       'completed',
       'Completed'
     ];
-    // **LOGIKA PENCARIAN DATA AWAL TETAP SAMA**
     final List<
         Future<
             List<
@@ -222,11 +236,9 @@ class ReportService {
                     Map<String, dynamic>>>>> futures = statusVariations
         .map((status) => _db
             .collection('orders')
-            // **PENTING: Query awal diubah untuk mencakup rentang tanggal yang lebih luas**
-            // Ini untuk menangkap pesanan yang dibuat di satu bulan tapi dikirim di bulan lain
             .where('date',
                 isGreaterThanOrEqualTo: inclusiveStartDate.subtract(
-                    const Duration(days: 90))) // Mundur 90 hari untuk keamanan
+                    const Duration(days: 90))) 
             .where('date', isLessThan: exclusiveEndDate)
             .where('status', isEqualTo: status)
             .get()
@@ -243,7 +255,6 @@ class ReportService {
     for (var orderDoc in allOrderDocs) {
       final orderData = app_order.Order.fromFirestore(orderDoc);
 
-      // --- LOGIKA BARU UNTUK MENENTUKAN TANGGAL ---
       final DateTime transactionDate;
       if (orderData.shippedAt != null) {
         transactionDate = orderData.shippedAt!.toDate();
@@ -251,10 +262,9 @@ class ReportService {
         transactionDate = orderData.date.toDate();
       }
 
-      // Filter manual untuk memastikan tanggal transaksi masuk dalam rentang yang diminta
       if (transactionDate.isBefore(inclusiveStartDate) ||
           transactionDate.isAfter(exclusiveEndDate)) {
-        continue; // Lewati pesanan ini jika tanggal transaksinya di luar rentang
+        continue; 
       }
 
       for (var item in orderData.products) {
@@ -263,7 +273,6 @@ class ReportService {
             ProductSalesHistory(
               orderId: orderDoc.id,
               customerName: orderData.customer,
-              // Menggunakan tanggal transaksi yang sudah ditentukan
               orderDate: transactionDate,
               quantity: item.quantity,
             ),

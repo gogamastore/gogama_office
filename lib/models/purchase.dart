@@ -9,8 +9,9 @@ class Purchase {
   final List<PurchaseCartItem> items;
   final double totalAmount;
   final String paymentMethod;
-  final DateTime date; // <-- DIUBAH dari purchaseDate menjadi date
+  final DateTime date;
   final String status;
+  final String? paymentStatus; // <-- DITAMBAHKAN
 
   Purchase({
     required this.id,
@@ -20,11 +21,11 @@ class Purchase {
     required this.items,
     required this.totalAmount,
     required this.paymentMethod,
-    required this.date, // <-- DIUBAH
+    required this.date,
     required this.status,
+    this.paymentStatus, // <-- DITAMBAHKAN
   });
 
-  // Konversi ke Map untuk Firestore
   Map<String, dynamic> toMap() {
     return {
       'purchaseNumber': purchaseNumber,
@@ -33,12 +34,12 @@ class Purchase {
       'items': items.map((item) => item.toMap()).toList(),
       'totalAmount': totalAmount,
       'paymentMethod': paymentMethod,
-      'date': Timestamp.fromDate(date), // <-- DIUBAH
+      'date': Timestamp.fromDate(date),
       'status': status,
+      'paymentStatus': paymentStatus, // <-- DITAMBAHKAN
     };
   }
 
-  // Buat dari Map Firestore
   factory Purchase.fromMap(String id, Map<String, dynamic> map) {
     return Purchase(
       id: id,
@@ -50,8 +51,9 @@ class Purchase {
           .toList(),
       totalAmount: (map['totalAmount'] ?? 0).toDouble(),
       paymentMethod: map['paymentMethod'] ?? '',
-      date: (map['date'] as Timestamp).toDate(), // <-- DIUBAH
+      date: (map['date'] as Timestamp).toDate(),
       status: map['status'] ?? '',
+      paymentStatus: map['paymentStatus'], // <-- DITAMBAHKAN
     );
   }
 }
