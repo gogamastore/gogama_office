@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../operational/operational_transaction_screen.dart';
 import 'profile_settings_screen.dart';
 import 'reports_screen.dart';
 import 'security_screen.dart';
 import '../settings/settings_screen.dart';
 import '../../models/user_model.dart';
-import 'my_orders_screen.dart'; // Impor halaman baru
+import 'my_orders_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -96,13 +97,21 @@ class ProfileScreen extends ConsumerWidget {
                           builder: (context) => const ProfileSettingsScreen())),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
-                    // Menu baru ditambahkan di sini
                     _buildProfileMenuItem(
                       context,
                       icon: Icons.receipt_long_outlined, // Ikon untuk pesanan
                       title: 'Pesanan',
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(
                           builder: (context) => const MyOrdersScreen())),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                     _buildProfileMenuItem(
+                      context,
+                      icon: Icons.assessment_outlined,
+                      title: 'Operasional',
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const OperationalTransactionScreen()));
+                      },
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     _buildProfileMenuItem(

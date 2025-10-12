@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/expense_item.dart';
 import '../models/product.dart';
 import '../models/order.dart' as app_order;
 import '../models/product_sales_data.dart';
@@ -9,6 +10,22 @@ import '../models/customer_report.dart'; // Impor model baru
 
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+   Future<List<ExpenseItem>> getOperationalExpenses({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final querySnapshot = await _db
+        .collection('operational_expenses')
+        .where('date', isGreaterThanOrEqualTo: startDate)
+        .where('date', isLessThanOrEqualTo: endDate)
+        .get();
+
+    return querySnapshot.docs
+        .map((doc) => ExpenseItem.fromFirestore(doc))
+        .toList();
+  }
+
 
   // --- FUNGSI GENERATE CUSTOMER REPORT BARU ---
   Future<List<CustomerReport>> generateCustomerReport({

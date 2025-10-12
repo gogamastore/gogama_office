@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
 
-import '../reports/customer_report_screen.dart'; // <<< IMPORT HALAMAN BARU
+import '../reports/customer_report_screen.dart';
+import '../reports/operational_costs_screen.dart';
 import '../reports/payable_report_screen.dart';
 import '../reports/product_sales_report_screen.dart';
 import '../reports/purchase_report_screen.dart';
@@ -9,7 +10,6 @@ import '../reports/receivable_report_screen.dart';
 import '../reports/sales_report_screen.dart';
 import '../reports/stock_flow_report_screen.dart';
 
-// Model sederhana untuk data kartu laporan
 class ReportCardData {
   final IconData icon;
   final String title;
@@ -29,7 +29,6 @@ class ReportsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Daftar laporan yang akan ditampilkan
     final List<ReportCardData> reports = [
       ReportCardData(
         icon: Ionicons.document_text_outline,
@@ -79,16 +78,22 @@ class ReportsScreen extends StatelessWidget {
           builder: (context) => const PayableReportScreen(),
         )),
       ),
-      // --- PERUBAHAN DI SINI: Navigasi ke Laporan Pelanggan ---
       ReportCardData(
         icon: Ionicons.people_outline,
         title: 'Laporan Pelanggan',
         description: 'Analisis data dan perilaku pelanggan.',
         onView: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => const CustomerReportScreen(), // Mengarah ke halaman baru
+          builder: (context) => const CustomerReportScreen(),
         )),
       ),
-      // -----------------------------------------------------
+      ReportCardData(
+        icon: Ionicons.wallet_outline,
+        title: 'Biaya Operasional',
+        description: 'Lacak semua biaya operasional bisnis.',
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const OperationalCostsScreen(),
+        )),
+      ),
     ];
 
     return Scaffold(
@@ -100,7 +105,7 @@ class ReportsScreen extends StatelessWidget {
       ),
       backgroundColor: Theme.of(context)
           .scaffoldBackgroundColor
-          .withAlpha(245), // Sedikit lebih gelap
+          .withAlpha(245),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -144,7 +149,6 @@ class ReportsScreen extends StatelessWidget {
   }
 }
 
-// Widget untuk setiap kartu laporan
 class ReportCard extends StatelessWidget {
   final ReportCardData data;
 
