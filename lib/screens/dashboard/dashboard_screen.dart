@@ -63,8 +63,10 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 userDataAsync.when(
                   data: (user) => _buildHeader(user),
-                  loading: () => _buildHeader(null), // Tampilkan header dengan state loading
-                  error: (err, stack) => Center(child: Text('Gagal memuat data user: $err')),
+                  loading: () => _buildHeader(
+                      null), // Tampilkan header dengan state loading
+                  error: (err, stack) =>
+                      Center(child: Text('Gagal memuat data user: $err')),
                 ),
                 const SizedBox(height: 24),
                 dashboardDataAsync.when(
@@ -104,9 +106,10 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
         CircleAvatar(
           radius: 28,
           backgroundColor: const Color(0xFFE0E6ED),
-          backgroundImage: (user?.photoURL != null && user!.photoURL!.isNotEmpty)
-              ? NetworkImage(user.photoURL!)
-              : null,
+          backgroundImage:
+              (user?.photoURL != null && user!.photoURL!.isNotEmpty)
+                  ? NetworkImage(user.photoURL!)
+                  : null,
           child: (user?.photoURL == null || user!.photoURL!.isEmpty)
               ? const Icon(Icons.person, size: 30, color: Color(0xFFBDC3C7))
               : null,
@@ -117,7 +120,8 @@ class DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                user?.name ?? 'Memuat pengguna...', // Tampilkan nama atau pesan loading
+                user?.name ??
+                    'Memuat pengguna...', // Tampilkan nama atau pesan loading
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,

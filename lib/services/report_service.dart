@@ -6,12 +6,83 @@ import '../models/product_sales_data.dart';
 import '../models/product_sales_history.dart';
 import '../models/receivable_data.dart';
 import '../models/purchase.dart';
-import '../models/customer_report.dart'; // Impor model baru
+import '../models/customer_report.dart';
+import '../models/profit_loss_data.dart';
 
 class ReportService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-   Future<List<ExpenseItem>> getOperationalExpenses({
+  // --- FUNGSI LAPORAN LABA RUGI (DIKEMBALIKAN KE VERSI SEBELUMNYA) ---
+  Future<ProfitLossData> getProfitLossData({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    // 1. Ambil data pesanan yang sudah selesai dalam rentang waktu
+    final ordersSnapshot = await _db
+        .collection('orders')
+        .where('date', isGreaterThanOrEqualTo: startDate)
+        .where('date', isLessThanOrEqualTo: endDate)
+        .where('status', whereIn: [
+      'processing',
+      'Processing',
+      'Shipped',
+      'shipped',
+      'Delivered',
+      'delivered'
+    ]).get();
+
+    double totalRevenue = 0;
+    double totalCOGS = 0;
+
+    // 2. Iterasi setiap pesanan untuk menghitung pendapatan dan HPP
+    for (var doc in ordersSnapshot.docs) {
+      final order = app_order.Order.fromFirestore(doc);
+      try {
+        // Hitung total pendapatan dari setiap pesanan
+        String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9.]'), '');
+        totalRevenue += double.tryParse(cleanTotal) ?? 0.0;
+
+        // Hitung HPP dengan mengambil data produk satu per satu dari database
+        for (var item in order.products) {
+          final productDoc =
+              await _db.collection('products').doc(item.productId).get();
+          if (productDoc.exists) {
+            final product = Product.fromFirestore(productDoc);
+            totalCOGS += (product.purchasePrice ?? 0.0) * item.quantity;
+          }
+        }
+      } catch (e) {
+        // Abaikan jika ada error, anggap 0 untuk pesanan ini
+      }
+    }
+
+    // 3. Ambil dan hitung total biaya operasional
+    final expensesSnapshot = await _db
+        .collection('operational_expenses')
+        .where('date', isGreaterThanOrEqualTo: startDate)
+        .where('date', isLessThanOrEqualTo: endDate)
+        .get();
+
+    double totalOperationalExpenses = 0;
+    for (var doc in expensesSnapshot.docs) {
+      final expense = ExpenseItem.fromFirestore(doc);
+      totalOperationalExpenses += expense.amount;
+    }
+
+    // 4. Kalkulasi laba kotor dan laba bersih
+    final double grossProfit = totalRevenue - totalCOGS;
+    final double netProfit = grossProfit - totalOperationalExpenses;
+
+    return ProfitLossData(
+      totalRevenue: totalRevenue,
+      totalCOGS: totalCOGS,
+      grossProfit: grossProfit,
+      totalOperationalExpenses: totalOperationalExpenses,
+      netProfit: netProfit,
+    );
+  }
+
+  Future<List<ExpenseItem>> getOperationalExpenses({
     required DateTime startDate,
     required DateTime endDate,
   }) async {
@@ -26,8 +97,6 @@ class ReportService {
         .toList();
   }
 
-
-  // --- FUNGSI GENERATE CUSTOMER REPORT BARU ---
   Future<List<CustomerReport>> generateCustomerReport({
     required DateTime startDate,
     required DateTime endDate,
@@ -38,7 +107,6 @@ class ReportService {
         DateTime(endDate.year, endDate.month, endDate.day)
             .add(const Duration(days: 1));
 
-    // 1. Ambil semua pesanan dalam rentang tanggal
     final querySnapshot = await _db
         .collection('orders')
         .where('date', isGreaterThanOrEqualTo: inclusiveStartDate)
@@ -47,25 +115,19 @@ class ReportService {
 
     final reportMap = <String, CustomerReport>{};
 
-    // 2. Proses setiap pesanan
     for (var doc in querySnapshot.docs) {
       final order = app_order.Order.fromFirestore(doc);
-
-      // Gunakan customerId jika ada, jika tidak, gunakan nama customer sebagai fallback
       final customerId =
           order.customerId.isNotEmpty ? order.customerId : order.customer;
 
-      // Logika untuk menghitung total
       double total = 0.0;
       try {
-        // PERBAIKAN: Pertahankan titik desimal
         String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9.]'), '');
         total = double.tryParse(cleanTotal) ?? 0.0;
       } catch (e) {
         total = 0.0;
       }
 
-      // Jika pelanggan belum ada di map, buat entri baru
       reportMap.putIfAbsent(
         customerId,
         () => CustomerReport(
@@ -80,14 +142,18 @@ class ReportService {
 
       final report = reportMap[customerId]!;
 
-      // Hitung piutang
       final isUnpaid = order.paymentStatus.toLowerCase() == 'unpaid';
-      final isValidStatus =
-          ['shipped', 'delivered'].contains(order.status.toLowerCase());
+      final isValidStatus = [
+        'processing',
+        'Processing',
+        'Shipped',
+        'shipped',
+        'Delivered',
+        'delivered'
+      ].contains(order.status.toLowerCase());
       final newReceivables =
           report.receivables + (isUnpaid && isValidStatus ? total : 0);
 
-      // Perbarui laporan dengan data dari pesanan saat ini
       reportMap[customerId] = report.copyWith(
         transactionCount: report.transactionCount + 1,
         totalSpent: report.totalSpent + total,
@@ -97,7 +163,6 @@ class ReportService {
       );
     }
 
-    // 3. Ubah map menjadi daftar dan urutkan berdasarkan total belanja
     final reportList = reportMap.values.toList();
     reportList.sort((a, b) => b.totalSpent.compareTo(a.totalSpent));
 
@@ -207,7 +272,10 @@ class ReportService {
     final List<ReceivableData> receivableList = [];
     const List<String> validOrderStates = [
       'processing',
+      'Processing',
+      'Shipped',
       'shipped',
+      'Delivered',
       'delivered'
     ];
     const List<String> invalidOrderStates = ['canceled'];
@@ -219,9 +287,7 @@ class ReportService {
       if (validOrderStates.contains(orderStatusLower) &&
           !invalidOrderStates.contains(orderStatusLower)) {
         double total = 0.0;
-
         try {
-          // --- PERBAIKAN: Pertahankan titik desimal ---
           String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9.]'), '');
           total = double.tryParse(cleanTotal) ?? 0.0;
         } catch (e) {
@@ -276,8 +342,6 @@ class ReportService {
       'Shipped',
       'delivered',
       'Delivered',
-      'completed',
-      'Completed'
     ];
     final List<Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>>
         futures = statusVariations
@@ -302,7 +366,7 @@ class ReportService {
       for (var productInOrder in orderData.products) {
         salesAggregation.update(
           productInOrder.productId,
-          (value) => value + productInOrder.quantity, // PERBAIKAN TYPO
+          (value) => value + productInOrder.quantity,
           ifAbsent: () => productInOrder.quantity,
         );
       }
@@ -339,8 +403,6 @@ class ReportService {
       'Shipped',
       'delivered',
       'Delivered',
-      'completed',
-      'Completed'
     ];
     final List<Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>>
         futures = statusVariations

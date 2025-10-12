@@ -9,6 +9,7 @@ import '../reports/purchase_report_screen.dart';
 import '../reports/receivable_report_screen.dart';
 import '../reports/sales_report_screen.dart';
 import '../reports/stock_flow_report_screen.dart';
+import '../reports/profit_loss_screen.dart'; // 1. IMPORT PROFIT LOSS SCREEN
 
 class ReportCardData {
   final IconData icon;
@@ -92,6 +93,15 @@ class ReportsScreen extends StatelessWidget {
         description: 'Lacak semua biaya operasional bisnis.',
         onView: () => Navigator.of(context).push(MaterialPageRoute(
           builder: (context) => const OperationalCostsScreen(),
+        )),
+      ),
+      // 2. TAMBAHKAN MENU LAPORAN LABA RUGI DI SINI
+      ReportCardData(
+        icon: Ionicons.analytics_outline,
+        title: 'Laporan Laba Rugi',
+        description: 'Analisis pendapatan, biaya, dan laba.',
+        onView: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => const ProfitLossScreen(),
         )),
       ),
     ];
