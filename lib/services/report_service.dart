@@ -33,17 +33,19 @@ class ReportService {
     // 2. Proses setiap pesanan
     for (var doc in querySnapshot.docs) {
       final order = app_order.Order.fromFirestore(doc);
-      
+
       // Gunakan customerId jika ada, jika tidak, gunakan nama customer sebagai fallback
-      final customerId = order.customerId.isNotEmpty ? order.customerId : order.customer;
+      final customerId =
+          order.customerId.isNotEmpty ? order.customerId : order.customer;
 
       // Logika untuk menghitung total
       double total = 0.0;
       try {
-          String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9]'), '');
-          total = double.tryParse(cleanTotal) ?? 0.0;
+        // PERBAIKAN: Pertahankan titik desimal
+        String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9.]'), '');
+        total = double.tryParse(cleanTotal) ?? 0.0;
       } catch (e) {
-          total = 0.0; 
+        total = 0.0;
       }
 
       // Jika pelanggan belum ada di map, buat entri baru
@@ -51,7 +53,7 @@ class ReportService {
         customerId,
         () => CustomerReport(
           id: customerId,
-          name: order.customer, 
+          name: order.customer,
           transactionCount: 0,
           totalSpent: 0,
           receivables: 0,
@@ -63,15 +65,18 @@ class ReportService {
 
       // Hitung piutang
       final isUnpaid = order.paymentStatus.toLowerCase() == 'unpaid';
-      final isValidStatus = ['shipped', 'delivered'].contains(order.status.toLowerCase());
-      final newReceivables = report.receivables + (isUnpaid && isValidStatus ? total : 0);
+      final isValidStatus =
+          ['shipped', 'delivered'].contains(order.status.toLowerCase());
+      final newReceivables =
+          report.receivables + (isUnpaid && isValidStatus ? total : 0);
 
       // Perbarui laporan dengan data dari pesanan saat ini
       reportMap[customerId] = report.copyWith(
         transactionCount: report.transactionCount + 1,
         totalSpent: report.totalSpent + total,
         receivables: newReceivables,
-        orders: [...report.orders, order]..sort((a, b) => b.date.compareTo(a.date)),
+        orders: [...report.orders, order]
+          ..sort((a, b) => b.date.compareTo(a.date)),
       );
     }
 
@@ -81,7 +86,6 @@ class ReportService {
 
     return reportList;
   }
-
 
   Future<void> markOrderAsPaid(String orderId) async {
     try {
@@ -198,14 +202,13 @@ class ReportService {
       if (validOrderStates.contains(orderStatusLower) &&
           !invalidOrderStates.contains(orderStatusLower)) {
         double total = 0.0;
+
         try {
-          // --- LOGIKA DIPERBAIKI & DISIMPLIFY ---
-          // Karena analyzer menunjukkan order.total selalu String,
-          // kita bisa langsung memprosesnya sebagai String.
-          String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9]'), '');
+          // --- PERBAIKAN: Pertahankan titik desimal ---
+          String cleanTotal = order.total.replaceAll(RegExp(r'[^0-9.]'), '');
           total = double.tryParse(cleanTotal) ?? 0.0;
         } catch (e) {
-          total = 0.0; // Fallback jika parsing gagal
+          total = 0.0;
         }
 
         receivableList.add(
@@ -282,7 +285,7 @@ class ReportService {
       for (var productInOrder in orderData.products) {
         salesAggregation.update(
           productInOrder.productId,
-          (value) => value + productInOrder.quantity,
+          (value) => value + productInOrder.quantity, // PERBAIKAN TYPO
           ifAbsent: () => productInOrder.quantity,
         );
       }
@@ -322,21 +325,18 @@ class ReportService {
       'completed',
       'Completed'
     ];
-    final List<
-        Future<
-            List<
-                QueryDocumentSnapshot<
-                    Map<String, dynamic>>>>> futures = statusVariations
-        .map((status) => _db
-            .collection('orders')
-            .where('date',
-                isGreaterThanOrEqualTo: inclusiveStartDate.subtract(
-                    const Duration(days: 90))) 
-            .where('date', isLessThan: exclusiveEndDate)
-            .where('status', isEqualTo: status)
-            .get()
-            .then((snapshot) => snapshot.docs))
-        .toList();
+    final List<Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>>
+        futures = statusVariations
+            .map((status) => _db
+                .collection('orders')
+                .where('date',
+                    isGreaterThanOrEqualTo:
+                        inclusiveStartDate.subtract(const Duration(days: 90)))
+                .where('date', isLessThan: exclusiveEndDate)
+                .where('status', isEqualTo: status)
+                .get()
+                .then((snapshot) => snapshot.docs))
+            .toList();
 
     final List<List<QueryDocumentSnapshot>> results =
         await Future.wait(futures);
@@ -357,7 +357,7 @@ class ReportService {
 
       if (transactionDate.isBefore(inclusiveStartDate) ||
           transactionDate.isAfter(exclusiveEndDate)) {
-        continue; 
+        continue;
       }
 
       for (var item in orderData.products) {

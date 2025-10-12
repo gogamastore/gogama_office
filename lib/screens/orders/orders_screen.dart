@@ -16,8 +16,6 @@ class OrdersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Pengaman: Jika filter disetel ke status yang tidak lagi ditampilkan,
-    // reset ke status 'pending'
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final currentFilter = ref.read(orderFilterProvider);
       if (currentFilter == 'delivered' || currentFilter == 'cancelled') {
@@ -89,7 +87,7 @@ class OrdersScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Kelola pesanan yang sedang berjalan.', // Teks diubah
+                  'Kelola pesanan yang sedang berjalan.',
                   style: textTheme.bodySmall?.copyWith(
                     color: const Color(0xFF7F8C8D),
                   ),
@@ -141,7 +139,6 @@ class OrdersScreen extends ConsumerWidget {
     final activeFilter = ref.watch(orderFilterProvider);
     final counts = ref.watch(orderStatusCountsProvider);
 
-    // Menghapus filter 'delivered' dan 'cancelled'
     final statusFilters = [
       {'key': 'pending', 'label': 'Belum Proses'},
       {'key': 'processing', 'label': 'Perlu Dikirim'},
@@ -242,7 +239,7 @@ class OrdersScreen extends ConsumerWidget {
                               labelText: 'Di Validasi oleh',
                               border: OutlineInputBorder(),
                             ),
-                            value: selectedAdminName,
+                            initialValue: selectedAdminName,
                             items: admins.map<DropdownMenuItem<String>>((Staff admin) {
                               return DropdownMenuItem<String>(
                                 value: admin.name,
@@ -308,7 +305,7 @@ class OrdersScreen extends ConsumerWidget {
   Widget _buildOrderCard(BuildContext context, WidgetRef ref, Order order) {
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final double totalValue = double.tryParse(order.total) ?? 0.0;
+    final double totalValue = double.tryParse(order.total.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
 
     return GestureDetector(
       onTap: () {
@@ -446,39 +443,36 @@ class OrdersScreen extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(vertical: 12.0),
                 child: Divider(thickness: 1, height: 1),
               ),
-              Row(
+               Row(
                 children: [
                   Expanded(
                     child: _buildPaymentButton(context, ref, order),
                   ),
                   const SizedBox(width: 8),
+                  if (order.status != 'pending' && order.status != 'processing' && order.status != 'shipped') 
+                    const Spacer(),
+
+                  if (order.status == 'pending' || order.status == 'processing' || order.status == 'shipped')
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                         final nextStatus = order.status == 'pending' ? 'processing' : (order.status == 'processing' ? 'shipped' : '');
-
                         if (order.status == 'pending') {
-                           _showProcessOrderDialog(context, ref, order);
-                        } else if (nextStatus.isNotEmpty) {
-                          ref
-                              .read(orderServiceProvider)
-                              .updateOrderStatus(order.id, nextStatus)
-                              .then((_) {
-                            ref.read(orderProvider.notifier).refresh();
-                          });
+                          _showProcessOrderDialog(context, ref, order);
+                        } else {
+                          final nextStatus = order.status == 'processing' ? 'shipped' : (order.status == 'shipped' ? 'delivered' : '');
+                          if (nextStatus.isNotEmpty) {
+                             ref.read(orderServiceProvider).updateOrderStatus(order.id, nextStatus).then((_) {
+                               ref.read(orderProvider.notifier).refresh();
+                             });
+                          } 
                         }
                       },
-                      icon: const Icon(Ionicons.arrow_forward_circle_outline,
-                          color: Colors.white, size: 18),
-                      label: Text(_getButtonText(order.status),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white)),
+                      icon: Icon(_getButtonIcon(order.status), color: Colors.white, size: 18),
+                      label: Text(_getButtonText(order.status), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5DADE2),
+                        backgroundColor: _getButtonColor(order.status),
                         padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         elevation: 1,
                       ),
                     ),
@@ -616,12 +610,33 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
+  Color _getButtonColor(String status) {
+    switch (status) {
+      case 'shipped':
+        return const Color(0xFF27AE60); // Green for 'Selesai'
+      default:
+        return const Color(0xFF5DADE2); // Default blue
+    }
+  }
+
+  IconData _getButtonIcon(String status) {
+    switch (status) {
+      case 'shipped':
+        return Ionicons.checkmark_done_circle; 
+      default:
+        return Ionicons.arrow_forward_circle_outline;
+    }
+  }
+
+
   String _getButtonText(String status) {
     switch (status) {
       case 'pending':
         return 'Proses Pesanan';
       case 'processing':
         return 'Kirim Pesanan';
+      case 'shipped':
+        return 'Selesai';
       default:
         return 'Detail';
     }
