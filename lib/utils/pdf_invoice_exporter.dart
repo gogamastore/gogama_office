@@ -11,28 +11,47 @@ class PdfInvoiceExporter {
   Future<Uint8List> generateInvoice(Order order) async {
     final pdf = pw.Document();
 
-    // Menggunakan font yang mendukung karakter yang lebih luas jika diperlukan
     final font = await PdfGoogleFonts.openSansRegular();
     final boldFont = await PdfGoogleFonts.openSansBold();
 
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        build: (pw.Context context) {
+        margin: const pw.EdgeInsets.all(32),
+        header: (pw.Context context) {
+          // Header will be repeated on each page
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               _buildHeader(order, boldFont, font),
               pw.SizedBox(height: 20),
               _buildCustomerInfo(order, boldFont, font),
-              pw.SizedBox(height: 20),
-              _buildProductTable(order, boldFont, font),
-              pw.SizedBox(height: 20),
-              pw.Align(
-                alignment: pw.Alignment.centerRight,
-                child: _buildTotal(order, boldFont, font),
-              )
+              pw.SizedBox(height: 25),
             ],
+          );
+        },
+        build: (pw.Context context) {
+          // Content will flow across pages
+          return [
+            _buildProductTable(order, boldFont, font),
+            pw.SizedBox(height: 20),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: _buildTotal(order, boldFont, font),
+            ),
+          ];
+        },
+        footer: (pw.Context context) {
+          // Footer with page number
+          return pw.Container(
+            alignment: pw.Alignment.centerRight,
+            margin: const pw.EdgeInsets.only(top: 1.0 * PdfPageFormat.cm),
+            child: pw.Text(
+              'Halaman ${context.pageNumber} dari ${context.pagesCount}',
+              style: pw.Theme.of(context)
+                  .defaultTextStyle
+                  .copyWith(color: PdfColors.grey, fontSize: 10),
+            ),
           );
         },
       ),
@@ -89,11 +108,11 @@ class PdfInvoiceExporter {
       ];
     }).toList();
 
-    return pw.Table.fromTextArray(
+    return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle: pw.TextStyle(font: boldFont, color: PdfColors.white),
-      cellStyle: pw.TextStyle(font: font),
+      headerStyle: pw.TextStyle(font: boldFont, color: PdfColors.white, fontSize: 10),
+      cellStyle: pw.TextStyle(font: font, fontSize: 8),
       border: pw.TableBorder.all(color: PdfColors.grey600),
       headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey700),
       cellAlignment: pw.Alignment.centerLeft,
@@ -103,7 +122,7 @@ class PdfInvoiceExporter {
         2: pw.Alignment.centerRight,
         3: pw.Alignment.centerRight,
       },
-       cellPadding: const pw.EdgeInsets.all(8),
+       cellPadding: const pw.EdgeInsets.all(6),
     );
   }
 

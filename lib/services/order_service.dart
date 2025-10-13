@@ -143,14 +143,30 @@ class OrderService {
     });
   }
 
-  // --- METODE BARU DITAMBAHKAN DI SINI ---
   Future<void> setOrderValidator(String orderId, String validatorName) async {
     final orderRef = _db.collection('orders').doc(orderId);
     await orderRef.update({
       'kasir': validatorName,
     });
   }
-  // --- AKHIR METODE BARU ---
+
+  Future<List<Order>> getOrdersByStatus(List<String> statuses) async {
+    if (statuses.isEmpty) {
+      return [];
+    }
+    final snapshot = await _db
+        .collection('orders')
+        .where('status', whereIn: statuses)
+        .orderBy('date', descending: true)
+        .get();
+    final orders =
+        snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList();
+    final enrichedOrders = await Future.wait(orders.map((order) async {
+      final enrichedProducts = await _enrichProducts(order.products);
+      return order.copyWith(products: enrichedProducts);
+    }));
+    return enrichedOrders;
+  }
 
   Future<List<Order>> getAllOrders() async {
     final snapshot =
