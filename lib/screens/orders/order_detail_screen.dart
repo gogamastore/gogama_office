@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/order.dart';
-import '../../models/order_product.dart'; // <<< PENTING: Impor model OrderProduct
+import '../../models/order_product.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/formatter.dart';
+import '../../utils/pdf_invoice_exporter.dart';
 import './edit_order_screen.dart';
 import './pos_validation_screen.dart';
 
@@ -32,19 +35,43 @@ class OrderDetailScreen extends ConsumerWidget {
           orderAsync.when(
             data: (order) {
               if (order == null) return const SizedBox.shrink();
-              if (order.status == 'delivered' || order.status == 'cancelled') {
-                return const SizedBox.shrink();
-              }
-              return IconButton(
-                icon: const Icon(Ionicons.create_outline),
-                tooltip: 'Edit Pesanan',
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => EditOrderScreen(order: order),
+
+              final showEditButton =
+                  order.status != 'delivered' && order.status != 'cancelled';
+              final showDownloadButton = [
+                'processing',
+                'shipped',
+                'delivered'
+              ].contains(order.status);
+
+              return Row(
+                children: [
+                  if (showDownloadButton)
+                    IconButton(
+                      icon: const Icon(Ionicons.download_outline),
+                      tooltip: 'Download Faktur',
+                      onPressed: () async {
+                        final pdfExporter = PdfInvoiceExporter();
+                        final pdfBytes =
+                            await pdfExporter.generateInvoice(order);
+                        await Printing.layoutPdf(
+                            onLayout: (PdfPageFormat format) async => pdfBytes,
+                            name: 'faktur_pesanan_${order.id}.pdf');
+                      },
                     ),
-                  );
-                },
+                  if (showEditButton)
+                    IconButton(
+                      icon: const Icon(Ionicons.create_outline),
+                      tooltip: 'Edit Pesanan',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => EditOrderScreen(order: order),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               );
             },
             loading: () => const SizedBox.shrink(),
@@ -183,7 +210,6 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- PERBAIKAN DI SINI ---
   Widget _buildCustomerCard(Order order) {
     return _buildCard(
       children: [
@@ -191,7 +217,6 @@ class OrderDetailScreen extends ConsumerWidget {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const Divider(height: 20),
         _buildCustomerDetailRow(Ionicons.person_outline, order.customer),
-        // Gunakan order.customerPhone dan cek null/kosong
         if (order.customerPhone.isNotEmpty)
           _buildCustomerDetailRow(Ionicons.logo_whatsapp, order.customerPhone),
         _buildCustomerDetailRow(
@@ -203,7 +228,6 @@ class OrderDetailScreen extends ConsumerWidget {
 
   Widget _buildCustomerDetailRow(IconData icon, String text,
       {bool isLast = false}) {
-    // Tambahkan pengecekan jika teks kosong
     if (text.isEmpty || text == '-') return const SizedBox.shrink();
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 12.0),
@@ -217,15 +241,13 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- PERBAIKAN DI SINI ---
   Widget _buildProductsCard(BuildContext context, Order order) {
     final formatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    
-    // Gunakan tipe yang benar: OrderProduct
+
     final sortedProducts = List<OrderProduct>.from(order.products);
-    // Lakukan sort dengan aman
-    sortedProducts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    sortedProducts
+        .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     final subtotal =
         sortedProducts.fold(0.0, (sum, p) => sum + (p.price * p.quantity));
@@ -239,7 +261,6 @@ class OrderDetailScreen extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
-                // Akses properti dengan aman (?.) dan beri nilai default
                 child: CachedNetworkImage(
                   imageUrl: p.imageUrl ?? '',
                   width: 50,
