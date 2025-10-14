@@ -5,6 +5,7 @@ import 'promo_screen.dart';
 import 'staff_management_screen.dart';
 import 'supplier_management_screen.dart';
 import 'trending_products_screen.dart';
+import '../ai/ai_stock_suggestion_screen.dart'; // Import halaman AI
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -31,7 +32,15 @@ class SettingsScreen extends StatelessWidget {
             subtitle: 'Kelola data supplier Anda',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SupplierManagementScreen())),
           ),
-          // --- MENU BARU DITAMBAHKAN DI SINI ---
+          // --- MENU AI DITAMBAHKAN DI SINI ---
+          _buildMenuItem(
+            context,
+            icon: Icons.auto_awesome, // Ikon AI
+            title: 'Saran Stok (AI)',
+            subtitle: 'Dapatkan rekomendasi stok menggunakan AI',
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiStockSuggestionScreen())),
+          ),
+          // ------------------------------------
           _buildMenuItem(
             context,
             icon: Icons.contacts_outlined,

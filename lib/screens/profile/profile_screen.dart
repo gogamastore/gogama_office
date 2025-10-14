@@ -10,14 +10,15 @@ import 'security_screen.dart';
 import '../settings/settings_screen.dart';
 import '../../models/user_model.dart';
 import 'my_orders_screen.dart';
+import '../ai/ai_stock_suggestion_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userData = ref.watch(userDataProvider);
     final authService = ref.read(authServiceProvider);
+    final userDataState = ref.watch(userDataProvider);
 
     void navigateToSettings(UserModel? user) {
       if (user != null &&
@@ -45,15 +46,17 @@ class ProfileScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
           child: Column(
             children: [
-              userData.when(
+              userDataState.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) =>
                     Center(child: Text('Gagal memuat profil: $error')),
                 data: (user) {
-                  final displayName = (user != null && user.name.isNotEmpty)
-                      ? user.name
-                      : (user?.email ?? 'Pengguna');
+                  final displayName =
+                      (user?.name != null && user!.name.isNotEmpty)
+                          ? user.name
+                          : (user?.email ?? 'Pengguna');
                   final photoUrl = user?.photoURL ?? '';
+
                   return Column(
                     children: [
                       Center(
@@ -78,90 +81,110 @@ class ProfileScreen extends ConsumerWidget {
                             ?.copyWith(fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
+                      const SizedBox(height: 32),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Column(
+                          children: [
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.edit_outlined,
+                              title: 'Edit Profil',
+                              onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const ProfileSettingsScreen())),
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.receipt_long_outlined,
+                              title: 'Pesanan',
+                              onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const MyOrdersScreen())),
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.auto_awesome,
+                              title: 'AI Gogama',
+                              onTap: () {
+                                Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (context) =>
+                                        const AiStockSuggestionScreen()));
+                              },
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.assessment_outlined,
+                              title: 'Operasional',
+                              onTap: () {
+                                Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (context) =>
+                                        const OperationalTransactionScreen()));
+                              },
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.store_outlined,
+                              title: 'Pengaturan Toko',
+                              onTap: () {
+                                navigateToSettings(user);
+                              },
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.bar_chart,
+                              title: 'Pusat Laporan',
+                              onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const ReportsScreen())),
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            _buildProfileMenuItem(
+                              context,
+                              icon: Icons.security,
+                              title: 'Keamanan',
+                              onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const SecurityScreen())),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.logout, color: Colors.white),
+                          label: const Text('Logout',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: Colors.redAccent,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () async {
+                            await authService.signOut();
+                          },
+                        ),
+                      ),
                     ],
                   );
                 },
-              ),
-              const SizedBox(height: 32),
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Column(
-                  children: [
-                    _buildProfileMenuItem(
-                      context,
-                      icon: Icons.edit_outlined,
-                      title: 'Edit Profil',
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => const ProfileSettingsScreen())),
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    _buildProfileMenuItem(
-                      context,
-                      icon: Icons.receipt_long_outlined, // Ikon untuk pesanan
-                      title: 'Pesanan',
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => const MyOrdersScreen())),
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                     _buildProfileMenuItem(
-                      context,
-                      icon: Icons.assessment_outlined,
-                      title: 'Operasional',
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const OperationalTransactionScreen()));
-                      },
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    _buildProfileMenuItem(
-                      context,
-                      icon: Icons.store_outlined,
-                      title: 'Pengaturan Toko',
-                      onTap: () {
-                        final user = ref.read(userDataProvider).asData?.value;
-                        navigateToSettings(user);
-                      },
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    _buildProfileMenuItem(
-                      context,
-                      icon: Icons.bar_chart,
-                      title: 'Pusat Laporan',
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => const ReportsScreen())),
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    _buildProfileMenuItem(
-                      context,
-                      icon: Icons.security,
-                      title: 'Keamanan',
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => const SecurityScreen())),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  label: const Text('Logout',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.redAccent,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    await authService.signOut();
-                  },
-                ),
               ),
             ],
           ),

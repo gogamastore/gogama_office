@@ -30,30 +30,28 @@ android {
         }
     }
 
-    // --- PERUBAHAN 1: Mengaktifkan desugaring dan menyetel ke Java 8 ---
     compileOptions {
-        isCoreLibraryDesugaringEnabled = true // Sintaks yang benar untuk KTS
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
-    // --- PERUBAHAN 2: Menyesuaikan target JVM Kotlin ---
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
     }
 
     defaultConfig {
-        applicationId = "store.gogama.office" // (TIDAK DIUBAH)
-        minSdk = flutter.minSdkVersion // Set ke 21 untuk kompatibilitas desugaring
+        applicationId = "store.gogama.office"
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true // (TIDAK DIUBAH)
+        multiDexEnabled = true
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release") // (TIDAK DIUBAH)
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
@@ -64,7 +62,5 @@ flutter {
 
 dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
-
-    // --- PERUBAHAN 3: Menambahkan dependensi untuk desugaring ---
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }

@@ -113,9 +113,7 @@ class ReportsScreen extends StatelessWidget {
         foregroundColor: Theme.of(context).textTheme.titleLarge?.color,
         elevation: 1,
       ),
-      backgroundColor: Theme.of(context)
-          .scaffoldBackgroundColor
-          .withAlpha(245),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor.withAlpha(245),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -139,8 +137,7 @@ class ReportsScreen extends StatelessWidget {
             const SizedBox(height: 24),
             GridView.builder(
               shrinkWrap: true,
-              physics:
-                  const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
