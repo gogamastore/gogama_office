@@ -20,8 +20,8 @@ class ReportService {
     // 1. Ambil data pesanan yang sudah selesai dalam rentang waktu
     final ordersSnapshot = await _db
         .collection('orders')
-        .where('date', isGreaterThanOrEqualTo: startDate)
-        .where('date', isLessThanOrEqualTo: endDate)
+        .where('validatedAt', isGreaterThanOrEqualTo: startDate)
+        .where('validatedAt', isLessThanOrEqualTo: endDate)
         .where('status', whereIn: [
       'processing',
       'Processing',
