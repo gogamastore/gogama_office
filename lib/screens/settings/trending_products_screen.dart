@@ -46,7 +46,9 @@ class _TrendingProductsScreenState extends State<TrendingProductsScreen> {
           .toList();
 
       if (trendingData.isEmpty) {
-        if (mounted) setState(() => _trendingProducts = []);
+        if (mounted) {
+          setState(() => _trendingProducts = []);
+        }
         return;
       }
 
@@ -55,12 +57,19 @@ class _TrendingProductsScreenState extends State<TrendingProductsScreen> {
             .collection('products')
             .doc(ref['productId'] as String)
             .get();
+
         if (productDoc.exists) {
-          return TrendingProduct(
-            trendingId: ref['trendingId'] as String,
-            product: Product.fromFirestore(productDoc),
-            orderIndex: ref['orderIndex'] as int,
-          );
+          try {
+            return TrendingProduct(
+              trendingId: ref['trendingId'] as String,
+              product: Product.fromFirestore(productDoc),
+              orderIndex: ref['orderIndex'] as int,
+            );
+          } catch (e) {
+            print(
+                'Gagal parse produk dengan ID: ${ref['productId']}. Error: $e');
+            return null;
+          }
         }
         return null;
       }).toList();
@@ -68,9 +77,14 @@ class _TrendingProductsScreenState extends State<TrendingProductsScreen> {
       final resolvedProducts = (await Future.wait(productFutures))
           .whereType<TrendingProduct>()
           .toList();
+
+      // Meskipun server sudah mengurutkan, `Future.wait` tidak menjamin urutan.
+      // Sorting di sisi klien adalah jaring pengaman yang baik.
       resolvedProducts.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
-      if (mounted) setState(() => _trendingProducts = resolvedProducts);
+      if (mounted) {
+        setState(() => _trendingProducts = resolvedProducts);
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -78,7 +92,9 @@ class _TrendingProductsScreenState extends State<TrendingProductsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -245,4 +261,16 @@ class _TrendingProductsScreenState extends State<TrendingProductsScreen> {
                 ReorderableDragStartListener(
                   index: index,
                   child: const Padding(
-                    padding: EdgeInset
+                    padding: EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Icon(Icons.drag_handle),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      onReorder: _onReorder,
+    );
+  }
+}
