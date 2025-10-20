@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +10,7 @@ import '../../models/order_item.dart';
 import '../../models/order_product.dart';
 import '../../models/product.dart';
 import '../customers/customer_list_screen.dart';
-import 'confirm_order_screen.dart'; // Impor halaman baru
+import 'confirm_order_screen.dart';
 import 'edit_order_item_dialog.dart';
 import 'select_product_screen.dart';
 
@@ -32,15 +33,47 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   void _editItem(int index) async {
     final itemToEdit = _items[index];
 
+    final productDoc = await FirebaseFirestore.instance
+        .collection('products')
+        .doc(itemToEdit.productId)
+        .get();
+
+    if (!mounted) return;
+
+    if (!productDoc.exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Produk tidak ditemukan. Mungkin telah dihapus.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final product = Product.fromFirestore(productDoc);
+    final availableStock = product.stock;
+
     final updatedItem = await showDialog<OrderItem>(
       context: context,
       builder: (context) => EditOrderItemDialog(product: itemToEdit),
     );
 
     if (updatedItem != null) {
-      setState(() {
-        _items[index] = updatedItem;
-      });
+      if (updatedItem.quantity > availableStock) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Stok tidak cukup. Sisa stok: $availableStock'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _items[index] = updatedItem;
+        });
+      }
     }
   }
 
@@ -72,18 +105,36 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
         if (existingItemIndex != -1) {
           final existingItem = _items[existingItemIndex];
-          _items[existingItemIndex] = existingItem.copyWith(
-            quantity: existingItem.quantity + 1,
-          );
+          if (existingItem.quantity < selectedProduct.stock) {
+            _items[existingItemIndex] = existingItem.copyWith(
+              quantity: existingItem.quantity + 1,
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Jumlah pesanan sudah mencapai stok maksimal.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         } else {
-          _items.add(OrderItem(
-            productId: selectedProduct.id,
-            name: selectedProduct.name,
-            quantity: 1,
-            price: selectedProduct.price,
-            imageUrl: selectedProduct.image,
-            sku: selectedProduct.sku,
-          ));
+          if (selectedProduct.stock > 0) {
+            _items.add(OrderItem(
+              productId: selectedProduct.id,
+              name: selectedProduct.name,
+              quantity: 1,
+              price: selectedProduct.price,
+              imageUrl: selectedProduct.image,
+              sku: selectedProduct.sku,
+            ));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Produk ini kehabisan stok.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
         _items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       });
@@ -105,23 +156,26 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     }
   }
 
-  // --- FUNGSI DIUBAH UNTUK NAVIGASI --- 
   void _proceedToConfirmation() {
     if (_selectedCustomer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih customer terlebih dahulu.'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Pilih customer terlebih dahulu.'),
+            backgroundColor: Colors.red),
       );
       return;
     }
 
-    final productsForOrder = _items.map((item) => OrderProduct(
-      productId: item.productId,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      sku: item.sku,
-      imageUrl: item.imageUrl,
-    )).toList();
+    final productsForOrder = _items
+        .map((item) => OrderProduct(
+              productId: item.productId,
+              name: item.name,
+              quantity: item.quantity,
+              price: item.price,
+              sku: item.sku,
+              imageUrl: item.imageUrl,
+            ))
+        .toList();
 
     Navigator.push(
       context,
@@ -134,7 +188,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       ),
     );
   }
-  // --- AKHIR PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -144,8 +197,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.arrow_forward_rounded),
-            // Tombol akan aktif jika ada customer dan minimal 1 produk
-            onPressed: _items.isNotEmpty && _selectedCustomer != null ? _proceedToConfirmation : null,
+            onPressed: _items.isNotEmpty && _selectedCustomer != null
+                ? _proceedToConfirmation
+                : null,
             tooltip: 'Lanjutkan ke Konfirmasi',
           ),
         ],
@@ -164,7 +218,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -176,15 +231,14 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               label: const Text('Tambah Produk'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
           const Divider(height: 1),
           Expanded(
-            child: _items.isEmpty
-                ? _buildEmptyState()
-                : _buildProductListView(),
+            child: _items.isEmpty ? _buildEmptyState() : _buildProductListView(),
           ),
           _buildTotalsSection(),
         ],
@@ -239,7 +293,10 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       elevation: 8,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
-          16, 16, 16, 16 + MediaQuery.of(context).padding.bottom,
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(context).padding.bottom,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -298,14 +355,18 @@ class _OrderItemCard extends ConsumerWidget {
                   children: [
                     Text(
                       item.name,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '${item.quantity} x ${currencyFormatter.format(item.price)}',
-                      style: const TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -316,13 +377,17 @@ class _OrderItemCard extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
-                    icon: const Icon(Ionicons.trash_outline, color: Colors.redAccent),
+                    icon: const Icon(Ionicons.trash_outline,
+                        color: Colors.redAccent),
                     onPressed: onRemove,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     currencyFormatter.format(item.price * item.quantity),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue),
                   ),
                 ],
               ),

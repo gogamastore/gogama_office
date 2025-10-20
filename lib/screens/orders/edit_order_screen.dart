@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
 import 'dart:io';
 import 'dart:async';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../../models/order.dart';
 import '../../models/order_item.dart';
@@ -44,7 +44,6 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
       );
     }).toList();
 
-    // --- PERUBAHAN: Mengurutkan daftar produk berdasarkan nama A-Z ---
     _items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     _shippingFeeController = TextEditingController(
@@ -62,7 +61,7 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   void _calculateTotals() {
     _subtotal = _items.fold(
       0.0,
-      (sum, item) => sum + (item.price * item.quantity),
+      (previousValue, item) => previousValue + (item.price * item.quantity),
     );
     final shippingFee = double.tryParse(_shippingFeeController.text) ?? 0.0;
     setState(() {
@@ -73,16 +72,48 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
   void _editItem(int index) async {
     final itemToEdit = _items[index];
 
+    final productDoc = await FirebaseFirestore.instance
+        .collection('products')
+        .doc(itemToEdit.productId)
+        .get();
+
+    if (!mounted) return; // Guard against async gaps
+
+    if (!productDoc.exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Produk tidak ditemukan. Mungkin telah dihapus.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final product = Product.fromFirestore(productDoc);
+    final availableStock = product.stock;
+
     final updatedItem = await showDialog<OrderItem>(
       context: context,
       builder: (context) => EditOrderItemDialog(product: itemToEdit),
     );
 
     if (updatedItem != null) {
-      setState(() {
-        _items[index] = updatedItem;
-        _calculateTotals();
-      });
+      if (updatedItem.quantity > availableStock) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Stok tidak cukup. Kuantitas melebihi stok yang tersedia ($availableStock).'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _items[index] = updatedItem;
+          _calculateTotals();
+        });
+      }
     }
   }
 
@@ -110,22 +141,42 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
 
     if (selectedProduct != null) {
       setState(() {
-        final existingItemIndex = _items.indexWhere((item) => item.productId == selectedProduct.id);
+        final existingItemIndex =
+            _items.indexWhere((item) => item.productId == selectedProduct.id);
 
         if (existingItemIndex != -1) {
           final existingItem = _items[existingItemIndex];
-          _items[existingItemIndex] = existingItem.copyWith(
-            quantity: existingItem.quantity + 1,
-          );
+
+          if (existingItem.quantity < selectedProduct.stock) {
+            _items[existingItemIndex] = existingItem.copyWith(
+              quantity: existingItem.quantity + 1,
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Jumlah pesanan sudah mencapai stok maksimal.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         } else {
-          _items.add(OrderItem(
-            productId: selectedProduct.id,
-            name: selectedProduct.name,
-            quantity: 1,
-            price: selectedProduct.price,
-            imageUrl: selectedProduct.image,
-            sku: selectedProduct.sku,
-          ));
+          if (selectedProduct.stock > 0) {
+            _items.add(OrderItem(
+              productId: selectedProduct.id,
+              name: selectedProduct.name,
+              quantity: 1,
+              price: selectedProduct.price,
+              imageUrl: selectedProduct.image,
+              sku: selectedProduct.sku,
+            ));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Produk ini kehabisan stok.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
         _items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         _calculateTotals();
