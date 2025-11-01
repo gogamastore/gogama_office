@@ -13,6 +13,7 @@ import '../../models/product.dart';
 import '../../providers/order_provider.dart';
 import 'edit_order_item_dialog.dart';
 import 'select_product_screen.dart';
+import 'order_detail_screen.dart';
 
 class EditOrderScreen extends ConsumerStatefulWidget {
   final Order order;
@@ -198,13 +199,28 @@ class _EditOrderScreenState extends ConsumerState<EditOrderScreen> {
           );
 
       if (success && mounted) {
+        // --- LOGIKA REFRESH & NAVIGASI BARU ---
+        // 1. Invalidate provider detail agar mengambil data baru
+        ref.invalidate(orderDetailsProvider(widget.order.id));
+        // 2. Refresh daftar pesanan utama (opsional, tapi bagus untuk konsistensi)
+        await ref.read(orderProvider.notifier).refresh();
+
+        // 3. Tampilkan notifikasi
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Pesanan berhasil diperbarui!'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop();
+
+        // 4. Ganti halaman dengan halaman detail yang sudah di-refresh
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => OrderDetailScreen(orderId: widget.order.id),
+          ),
+        );
+        // --- AKHIR LOGIKA BARU ---
+
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
