@@ -10,6 +10,7 @@ import '../../models/order_item.dart';
 import '../../widgets/pos_scanned_item_tile.dart';
 import 'scanner_screen.dart';
 import 'validated_order_summary_screen.dart';
+import 'pos_edit_item_dialog.dart'; // Impor dialog baru
 
 class PosValidationScreen extends ConsumerStatefulWidget {
   final Order order;
@@ -47,29 +48,52 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
     super.dispose();
   }
 
-  void _findAndAddProduct(String sku) {
+  void _findAndAddProduct(String sku) async {
     final productInOrder = _unscannedProducts.where((p) => p.sku == sku).firstOrNull;
 
     if (productInOrder != null) {
-      setState(() {
-        _unscannedProducts.removeWhere((p) => p.sku == sku);
-        _validatedProducts[sku] = productInOrder;
-        if (!_confirmedQuantities.containsKey(sku)) {
-          _confirmedQuantities[sku] = productInOrder.quantity;
-        }
-      });
-      _manualInputController.clear();
       _playSound('sounds/success.mp3');
-      _showQuantityDialog(productInOrder);
+      // Panggil dialog edit baru
+      final OrderItem? updatedItem = await showDialog<OrderItem>(
+          context: context,
+          builder: (_) => PosEditItemDialog(product: productInOrder),
+      );
+
+      if (updatedItem != null) {
+          setState(() {
+              _unscannedProducts.removeWhere((p) => p.sku == sku);
+              // Simpan item yang sudah diperbarui (termasuk harga baru jika ada)
+              _validatedProducts[sku] = updatedItem;
+              _confirmedQuantities[sku] = updatedItem.quantity;
+          });
+      }
+      _manualInputController.clear();
+
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('SKU tidak ditemukan atau sudah divalidasi.'), backgroundColor: Colors.orange),
       );
-      _playSound('sounds/error.mp3'); // THE FIX: Use the robust play sound method
+      _playSound('sounds/error.mp3');
     }
   }
 
-  // Robust method to play sound and handle errors
+  // Fungsi baru untuk menampilkan dialog edit yang canggih
+  void _showEditDialog(OrderItem product) async {
+    final OrderItem? updatedItem = await showDialog<OrderItem>(
+        context: context,
+        builder: (_) => PosEditItemDialog(product: product),
+    );
+
+    if (updatedItem != null) {
+        setState(() {
+            // Update harga di keranjang validasi jika berubah
+            _validatedProducts[product.sku!] = updatedItem;
+            // Update kuantitas
+            _confirmedQuantities[product.sku!] = updatedItem.quantity;
+        });
+    }
+  }
+
   Future<void> _playSound(String soundPath) async {
     try {
       await _audioPlayer.play(AssetSource(soundPath));
@@ -80,12 +104,6 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         error: e,
         stackTrace: stackTrace,
       );
-      // Optional: Show a snackbar if sound fails, but don't pop the screen.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memutar efek suara: $e'), backgroundColor: Colors.red),
-        );
-      }
     }
   }
 
@@ -105,64 +123,6 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
     }
   }
 
-  void _showQuantityDialog(OrderItem product) {
-    int currentQty = _confirmedQuantities[product.sku] ?? product.quantity;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('SKU: ${product.sku}'),
-                  const SizedBox(height: 16),
-                  Text('Jumlah Pesanan: ${product.quantity}', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle, size: 40, color: Colors.redAccent),
-                        onPressed: () {
-                          if (currentQty > 0) {
-                            setDialogState(() => currentQty--);
-                          }
-                        },
-                      ),
-                      Text('$currentQty', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, size: 40, color: Colors.green),
-                        onPressed: () {
-                          if (currentQty < product.quantity) {
-                            setDialogState(() => currentQty++);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Jumlah tidak boleh melebihi pesanan.'),
-                              backgroundColor: Colors.orange,
-                            ));
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Batal')),
-            ElevatedButton(
-              onPressed: () {
-                setState(() => _confirmedQuantities[product.sku!] = currentQty);
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Proses'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
  void _navigateToSummary() {
      final List<OrderItem> validatedItems = [];
     _confirmedQuantities.forEach((sku, confirmedQty) {
@@ -171,7 +131,7 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         validatedItems.add(OrderItem(
           productId: originalProduct.productId,
           name: originalProduct.name,
-          price: originalProduct.price,
+          price: originalProduct.price, // Harga yang sudah divalidasi
           quantity: confirmedQty,
           sku: originalProduct.sku,
           imageUrl: originalProduct.imageUrl,
@@ -213,13 +173,13 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
             content: const Text('Apakah Anda yakin ingin keluar dari halaman ini?'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(), // Tutup dialog
+                onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Batal'),
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop(); // Tutup dialog
-                  Navigator.of(context).pop(); // Keluar dari halaman
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
                 },
                 child: const Text('Ya, Keluar'),
               ),
@@ -265,10 +225,11 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
                               return PosScannedItemTile(
                                 name: product.name,
                                 sku: product.sku,
-                                price: product.price,
-                                originalQuantity: product.quantity,
+                                price: product.price, // Tampilkan harga yang mungkin sudah diubah
+                                originalQuantity: widget.order.products.firstWhere((p) => p.sku == product.sku).quantity,
                                 validatedQuantity: confirmedQty,
-                                onTap: () => _showQuantityDialog(product),
+                                // Ganti pemanggilan dialog lama dengan yang baru
+                                onTap: () => _showEditDialog(product),
                               );
                             },
                           ),
@@ -320,6 +281,7 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
     double totalValidatedPrice = 0;
     _confirmedQuantities.forEach((sku, qty) {
       if (qty > 0) {
+        // Gunakan harga dari _validatedProducts yang mungkin sudah diubah
         totalValidatedPrice += (_validatedProducts[sku]!.price * qty);
       }
     });

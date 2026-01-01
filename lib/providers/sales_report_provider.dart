@@ -173,11 +173,15 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
       for (var orderDoc in relevantDocs) {
         try {
           final orderData = orderDoc.data();
+
+          // --- PERBAIKAN LOGIKA PENGAMBILAN NAMA PELANGGAN ---
+          final customerDetailsMap = orderData['customerDetails'] as Map<String, dynamic>?;
           final customerId = orderData['customerId'] as String?;
-          final customerName = (customerDetails[customerId]?.data()
-                  as Map<String, dynamic>?)?['name'] as String? ??
-              orderData['customer'] as String? ??
-              'Pelanggan Langsung';
+
+          final String customerName = customerDetailsMap?['name'] as String? ?? 
+                                (customerDetails[customerId]?.data() as Map<String, dynamic>?)?['name'] as String? ?? 
+                                'Pelanggan'; // Fallback terakhir
+          // --- AKHIR PERBAIKAN ---
 
           List<SalesReportItem> items = [];
           double orderRevenue = 0;
@@ -209,7 +213,7 @@ class SalesReportNotifier extends StateNotifier<SalesReportState> {
           salesOrders.add(SalesReportOrder(
               orderId: orderDoc.id,
               orderDate: orderTimestamp,
-              customerName: customerName,
+              customerName: customerName, // Nama yang sudah diperbaiki akan digunakan di sini
               customerId: customerId,
               status: orderData['status'] as String,
               paymentStatus: orderData['paymentStatus'] as String? ?? 'unpaid',

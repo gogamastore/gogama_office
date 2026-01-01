@@ -1,9 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:ionicons/ionicons.dart';
 
-import '../../providers/product_provider.dart';
+// Hapus import product_provider yang lama
+// import '../../providers/product_provider.dart';
+
+// PERUBAHAN: Impor provider baru yang sudah memperhitungkan harga promo
+import '../../providers/promotional_product_provider.dart';
 import '../../services/sound_service.dart';
 import '../products/barcode_scanner_screen.dart';
 
@@ -23,7 +28,6 @@ class _SelectProductScreenState extends ConsumerState<SelectProductScreen> {
   void initState() {
     super.initState();
     _soundService = SoundService();
-    // Listener untuk memicu rebuild saat teks pencarian berubah
     _searchController.addListener(() {
       if (mounted) {
         setState(() {});
@@ -52,7 +56,10 @@ class _SelectProductScreenState extends ConsumerState<SelectProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final productsAsyncValue = ref.watch(allProductsProvider);
+    // PERUBAHAN: Gunakan provider baru untuk mendapatkan produk dengan harga promo
+    final productsAsyncValue = ref.watch(promotionalProductsProvider);
+    final currencyFormatter =
+        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
       appBar: AppBar(
@@ -103,9 +110,12 @@ class _SelectProductScreenState extends ConsumerState<SelectProductScreen> {
                     return ListTile(
                       leading: _buildProductImage(product.image),
                       title: Text(product.name),
-                      subtitle: Text('Stok: ${product.stock}'),
+                      // PERUBAHAN: Tampilkan harga (yang sudah promo jika ada) dan stok
+                      subtitle: Text(
+                        '${currencyFormatter.format(product.price)} | Stok: ${product.stock}',
+                      ),
                       onTap: () {
-                        // Kembalikan produk yang dipilih ke layar sebelumnya
+                        // Kembalikan produk yang dipilih (sudah dengan harga promo jika ada)
                         Navigator.of(context).pop(product);
                       },
                     );

@@ -57,7 +57,7 @@ class CustomerOrder {
       'customerDetails': customerDetails.toMap(),
       'date': FieldValue.serverTimestamp(), // Firestore akan mengubah ini menjadi Timestamp
       'status': status,
-      'total': total.toString(), // DIUBAH: `Order` mengharapkan String, kita kirim String
+      'total': total, // DIUBAH KEMBALI: `total` harus dikirim sebagai number
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
       'paymentProofUrl': paymentProofUrl, // Bisa null
