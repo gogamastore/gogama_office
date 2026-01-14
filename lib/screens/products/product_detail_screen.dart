@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ionicons/ionicons.dart'; // Impor Ionicons
 
 import '../../models/product.dart';
 import '../../models/promotion_model.dart';
@@ -8,6 +9,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/promo_provider.dart';
 import 'edit_product_screen.dart';
 import 'purchase_history_dialog.dart';
+import '../reports/stock_history_dialog.dart'; // PERUBAHAN: Impor dialog arus stok
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final Product product;
@@ -32,6 +34,14 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       MaterialPageRoute(
         builder: (context) => EditProductScreen(product: _currentProduct),
       ),
+    );
+  }
+
+  // PERUBAHAN: Fungsi baru untuk menampilkan dialog arus stok
+  void _showStockFlowDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => StockHistoryDialog(productId: _currentProduct.id),
     );
   }
 
@@ -125,14 +135,21 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       appBar: AppBar(
         title: Text(_currentProduct.name),
         actions: [
+          // PERUBAHAN: Menambahkan IconButton untuk Arus Stok
           IconButton(
-            icon: const Icon(Icons.edit),
+            icon: const Icon(Ionicons.swap_horizontal_outline),
+            tooltip: 'Arus Stok',
+            onPressed: _showStockFlowDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
             tooltip: 'Edit Produk',
             onPressed: _navigateToEditScreen,
           ),
+          // Saya membiarkan tombol history ini karena sepertinya fungsinya berbeda (Riwayat Pembelian)
           IconButton(
             icon: const Icon(Icons.history),
-            tooltip: 'Lihat Log Stok',
+            tooltip: 'Riwayat Pembelian',
             onPressed: _showPurchaseHistory,
           ),
           IconButton(
@@ -196,7 +213,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     );
   }
 
-  // --- PERUBAHAN TATA LETAK DI SINI ---
   Widget _buildInfoSection(NumberFormat currencyFormatter, AsyncValue<List<Promotion>> promosAsync) {
     final activePromo = promosAsync.whenData((promos) {
       try {
@@ -271,7 +287,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ),
           ),
         const SizedBox(height: 20),
-        // Baris pertama: Harga Beli dan Stok
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,7 +306,6 @@ class ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           ],
         ),
         const SizedBox(height: 20), 
-        // Baris kedua: Harga Jual atau Promo
         priceDisplayWidget,
       ],
     );
