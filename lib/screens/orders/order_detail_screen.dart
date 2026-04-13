@@ -13,7 +13,7 @@ import '../../providers/order_provider.dart';
 import '../../utils/formatter.dart';
 import '../../utils/pdf_invoice_exporter.dart';
 import './edit_order_screen.dart';
-import './pos_validation_screen.dart';
+import './pos_validation_screen.dart'; // Impor ini sudah benar
 
 class OrderDetailScreen extends ConsumerWidget {
   final String orderId;
@@ -23,6 +23,8 @@ class OrderDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderAsync = ref.watch(orderDetailsProvider(orderId));
+
+    // ... (kode lainnya tetap sama) ...
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -123,7 +125,8 @@ class OrderDetailScreen extends ConsumerWidget {
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => PosValidationScreen(order: order),
+              // --- PERBAIKAN DI SINI ---
+              builder: (context) => PosScreen(order: order), 
             ),
           );
         },
@@ -137,6 +140,8 @@ class OrderDetailScreen extends ConsumerWidget {
     }
     return const SizedBox.shrink();
   }
+
+  // ... (sisa kode _buildInfoCard dan seterusnya tetap sama) ...
 
   Widget _buildInfoCard(Order order) {
     return _buildCard(

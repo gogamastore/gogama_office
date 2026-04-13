@@ -4,33 +4,38 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:ionicons/ionicons.dart';
 
 import '../../models/order.dart';
 import '../../models/order_item.dart';
-import '../../widgets/pos_scanned_item_tile.dart';
+import '../../models/product.dart';
+import '../../providers/pos_cart_provider.dart';
 import 'scanner_screen.dart';
-import 'validated_order_summary_screen.dart';
-import 'pos_edit_item_dialog.dart'; // Impor dialog baru
+import 'pos_cart_screen.dart';
+import 'pos_edit_item_dialog.dart';
 
-class PosValidationScreen extends ConsumerStatefulWidget {
+class PosScreen extends ConsumerStatefulWidget {
   final Order order;
-  const PosValidationScreen({super.key, required this.order});
+  const PosScreen({super.key, required this.order});
 
   @override
-  ConsumerState<PosValidationScreen> createState() => _PosValidationScreenState();
+  ConsumerState<PosScreen> createState() => _PosScreenState();
 }
 
-class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
-  final Map<String, OrderItem> _validatedProducts = {};
-  final Map<String, int> _confirmedQuantities = {};
+class _PosScreenState extends ConsumerState<PosScreen> {
+  final Map<String, OrderItem> _scannedProducts = {};
   late List<OrderItem> _unscannedProducts;
-  
+
   final TextEditingController _manualInputController = TextEditingController();
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(posCartProvider.notifier).clearCart();
+    });
+
     _unscannedProducts = widget.order.products.map((p) => OrderItem(
       productId: p.productId,
       name: p.name,
@@ -49,67 +54,60 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
   }
 
   void _findAndAddProduct(String sku) async {
-    final productInOrder = _unscannedProducts.where((p) => p.sku == sku).firstOrNull;
+    final productInOrder = _unscannedProducts.firstWhere(
+      (p) => p.sku == sku,
+      orElse: () =>
+          OrderItem(productId: '', name: '', price: 0, quantity: 0, sku: sku),
+    );
 
-    if (productInOrder != null) {
-      _playSound('sounds/success.mp3');
-      // Panggil dialog edit baru
-      final OrderItem? updatedItem = await showDialog<OrderItem>(
-          context: context,
-          builder: (_) => PosEditItemDialog(product: productInOrder),
-      );
-
-      if (updatedItem != null) {
-          setState(() {
-              _unscannedProducts.removeWhere((p) => p.sku == sku);
-              // Simpan item yang sudah diperbarui (termasuk harga baru jika ada)
-              _validatedProducts[sku] = updatedItem;
-              _confirmedQuantities[sku] = updatedItem.quantity;
-          });
-      }
-      _manualInputController.clear();
-
-    } else {
+    if (productInOrder.productId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('SKU tidak ditemukan atau sudah divalidasi.'), backgroundColor: Colors.orange),
+        const SnackBar(
+            content: Text(
+                'SKU tidak ditemukan dalam pesanan ini atau sudah divalidasi.'),
+            backgroundColor: Colors.orange),
       );
       _playSound('sounds/error.mp3');
+      return;
     }
-  }
 
-  // Fungsi baru untuk menampilkan dialog edit yang canggih
-  void _showEditDialog(OrderItem product) async {
+    _playSound('sounds/success.mp3');
     final OrderItem? updatedItem = await showDialog<OrderItem>(
-        context: context,
-        builder: (_) => PosEditItemDialog(product: product),
+      context: context,
+      builder: (_) => PosEditItemDialog(product: productInOrder),
     );
 
     if (updatedItem != null) {
-        setState(() {
-            // Update harga di keranjang validasi jika berubah
-            _validatedProducts[product.sku!] = updatedItem;
-            // Update kuantitas
-            _confirmedQuantities[product.sku!] = updatedItem.quantity;
-        });
+      setState(() {
+        _unscannedProducts.removeWhere((p) => p.sku == sku);
+        _scannedProducts[sku] = updatedItem;
+
+        final product = Product(
+          id: updatedItem.productId,
+          name: updatedItem.name,
+          price: updatedItem.price, 
+          sku: updatedItem.sku,
+          image: updatedItem.imageUrl,
+          stock: 0, 
+        );
+        ref
+            .read(posCartProvider.notifier)
+            .addItem(product, updatedItem.quantity, null);
+      });
     }
+    _manualInputController.clear();
   }
 
   Future<void> _playSound(String soundPath) async {
     try {
       await _audioPlayer.play(AssetSource(soundPath));
-    } catch (e, stackTrace) {
-      developer.log(
-        'Gagal memainkan suara: $soundPath',
-        name: 'PosValidationScreen',
-        error: e,
-        stackTrace: stackTrace,
-      );
+    } catch (e) {
+      developer.log('Gagal memainkan suara: $e', name: 'PosScreen');
     }
   }
 
   Future<void> _navigateToScanner() async {
     try {
-      if (!mounted) return;
       final scannedValue = await Navigator.of(context).push<String>(
         MaterialPageRoute(builder: (context) => const ScannerScreen()),
       );
@@ -117,51 +115,16 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         _findAndAddProduct(scannedValue);
       }
     } catch (e) {
-      developer.log('Error saat navigasi ke pemindai: $e');
-       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal membuka pemindai: $e')));
+      developer.log('Gagal membuka pemindai: $e', name: 'PosScreen');
     }
   }
 
- void _navigateToSummary() {
-     final List<OrderItem> validatedItems = [];
-    _confirmedQuantities.forEach((sku, confirmedQty) {
-      if (confirmedQty > 0) {
-        final originalProduct = _validatedProducts[sku]!;
-        validatedItems.add(OrderItem(
-          productId: originalProduct.productId,
-          name: originalProduct.name,
-          price: originalProduct.price, // Harga yang sudah divalidasi
-          quantity: confirmedQty,
-          sku: originalProduct.sku,
-          imageUrl: originalProduct.imageUrl,
-        ));
-      }
-    });
-    if (validatedItems.isEmpty) {
-      showDialog(context: context, builder: (ctx) => AlertDialog(
-          title: const Text('Belum Ada Produk'),
-          content: const Text('Anda harus memvalidasi & memproses setidaknya satu produk.'),
-          actions: [TextButton(child: const Text('OK'), onPressed: () => Navigator.of(ctx).pop())],
-        ),
-      );
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ValidatedOrderSummaryScreen(
-          originalOrder: widget.order,
-          validatedItems: validatedItems,
-        ),
-      ),
-    );
-  }
-
-  @override
+ @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final validatedProductList = _validatedProducts.values.toList();
+    final cartItemCount = ref.watch(posCartProvider).length;
+    final unscannedTotal = _unscannedProducts.length;
 
+    // --- FIX: IMPLEMETING USER'S SUGGESTED PopScope LOGIC ---
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -173,13 +136,13 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
             content: const Text('Apakah Anda yakin ingin keluar dari halaman ini?'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).pop(), // Hanya tutup dialog
                 child: const Text('Batal'),
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Tutup dialog
+                  Navigator.of(context).pop(); // Keluar dari halaman validasi
                 },
                 child: const Text('Ya, Keluar'),
               ),
@@ -188,66 +151,105 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
         );
       },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Validasi Pesanan POS')),
-        body: Column(
-          children: [
-            _buildInputSection(),
-            const Divider(height: 1),
-            Expanded(
-              child: Column(
+        appBar: AppBar(
+          title: const Text('Validasi Pesanan'),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(40.0),
+            child: Container(
+              color: Colors.grey[200],
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildSectionHeader('Produk Pesanan (${_unscannedProducts.length})'),
-                  Expanded(
-                    child: _unscannedProducts.isEmpty
-                        ? const Center(child: Text('Semua produk sudah divalidasi!', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)))
-                        : ListView.builder(
-                            itemCount: _unscannedProducts.length,
-                            itemBuilder: (context, index) {
-                              final product = _unscannedProducts[index];
-                              return ListTile(
-                                leading: CircleAvatar(child: Text('${product.quantity}')),
-                                title: Text(product.name),
-                                subtitle: Text('SKU: ${product.sku}'),
-                              );
-                            },
-                          ),
-                  ),
-                  const Divider(thickness: 4),
-                  _buildSectionHeader('Keranjang Validasi (${validatedProductList.length})'),
-                  Expanded(
-                    child: validatedProductList.isEmpty
-                        ? const Center(child: Text('Pindai atau input SKU untuk memulai...', style: TextStyle(fontSize: 16, color: Colors.grey)))
-                        : ListView.builder(
-                            itemCount: validatedProductList.length,
-                            itemBuilder: (context, index) {
-                              final product = validatedProductList[index];
-                              final confirmedQty = _confirmedQuantities[product.sku] ?? 0;
-                              return PosScannedItemTile(
-                                name: product.name,
-                                sku: product.sku,
-                                price: product.price, // Tampilkan harga yang mungkin sudah diubah
-                                originalQuantity: widget.order.products.firstWhere((p) => p.sku == product.sku).quantity,
-                                validatedQuantity: confirmedQty,
-                                // Ganti pemanggilan dialog lama dengan yang baru
-                                onTap: () => _showEditDialog(product),
-                              );
-                            },
-                          ),
-                  ),
+                  Text('Order ID: ${widget.order.id}',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('$cartItemCount item divalidasi',
+                      style: const TextStyle(
+                          color: Colors.green, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
-            _buildSummary(currencyFormatter),
+          ),
+        ),
+        bottomNavigationBar: _buildBottomBar(context, cartItemCount),
+        body: Column(
+          children: [
+            _buildInputSection(),
+            const Divider(height: 1, thickness: 1),
+            Expanded(
+                child: _unscannedProducts.isEmpty && _scannedProducts.isEmpty
+                    ? const Center(child: Text('Pesanan ini tidak memiliki produk.'))
+                    : CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: _buildSectionHeader(
+                                'Belum Divalidasi ($unscannedTotal)',
+                                Icons.inventory_2_outlined,
+                                Colors.orange),
+                          ),
+                          if (_unscannedProducts.isNotEmpty)
+                            SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final item = _unscannedProducts[index];
+                                return _buildUnscannedItemTile(item);
+                              },
+                              childCount: _unscannedProducts.length,
+                            ))
+                          else
+                            const SliverToBoxAdapter(
+                              child: Center(
+                                  child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: Text('Semua produk telah divalidasi.',
+                                    style: TextStyle(color: Colors.green)),
+                              )),
+                            ),
+                          SliverToBoxAdapter(
+                            child: _buildSectionHeader(
+                                'Sudah Divalidasi ($cartItemCount)',
+                                Icons.check_circle_outline,
+                                Colors.green),
+                          ),
+                          if (_scannedProducts.isNotEmpty)
+                            SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final item =
+                                    _scannedProducts.values.elementAt(index);
+                                return _buildScannedItemTile(item);
+                              },
+                              childCount: _scannedProducts.length,
+                            ))
+                          else
+                            const SliverToBoxAdapter(
+                              child: Center(
+                                  child: Padding(
+                                padding: EdgeInsets.all(20.0),
+                                child: Text('Pindai produk untuk memulai validasi.'),
+                              )),
+                            ),
+                        ],
+                      )),
           ],
         ),
       ),
     );
+    // --- END FIX ---
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(String title, IconData icon, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Text(title,
+              style:
+                  TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
     );
   }
 
@@ -259,8 +261,12 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
           Expanded(
             child: TextField(
               controller: _manualInputController,
-              decoration: const InputDecoration(labelText: 'Input atau Pindai SKU', border: OutlineInputBorder()),
-              onSubmitted: (value) => (value.isNotEmpty) ? _findAndAddProduct(value) : null,
+              decoration: const InputDecoration(
+                  labelText: 'Input atau Pindai SKU',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Ionicons.barcode_outline)),
+              onSubmitted: (value) =>
+                  (value.isNotEmpty) ? _findAndAddProduct(value) : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -277,40 +283,56 @@ class _PosValidationScreenState extends ConsumerState<PosValidationScreen> {
     );
   }
 
-  Widget _buildSummary(NumberFormat currencyFormatter) {
-    double totalValidatedPrice = 0;
-    _confirmedQuantities.forEach((sku, qty) {
-      if (qty > 0) {
-        // Gunakan harga dari _validatedProducts yang mungkin sudah diubah
-        totalValidatedPrice += (_validatedProducts[sku]!.price * qty);
-      }
-    });
-
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(25), spreadRadius: 1, blurRadius: 5, offset: const Offset(0, -3))],
+  Widget _buildUnscannedItemTile(OrderItem item) {
+    return ListTile(
+      leading: CircleAvatar(child: Text('x${item.quantity}')),
+      title: Text(item.name),
+      subtitle: Text('SKU: ${item.sku}'),
+      trailing: IconButton(
+        icon: const Icon(Icons.arrow_circle_down, color: Colors.blue),
+        tooltip: 'Validasi manual',
+        onPressed: () => _findAndAddProduct(item.sku!),
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Total Validasi:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(currencyFormatter.format(totalValidatedPrice), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green)),
-            ],
+    );
+  }
+
+  Widget _buildScannedItemTile(OrderItem item) {
+    final currencyFormatter =
+        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ');
+    return ListTile(
+      leading: CircleAvatar(
+          backgroundColor: Colors.green,
+          child: Text('x${item.quantity}',
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold))),
+      title: Text(item.name,
+          style: const TextStyle(
+              color: Colors.grey,
+              fontStyle: FontStyle.italic,
+              decoration: TextDecoration.lineThrough)),
+      subtitle: Text('${currencyFormatter.format(item.price)} x ${item.quantity}'),
+      trailing: Text(currencyFormatter.format(item.price * item.quantity),
+          style: const TextStyle(fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context, int cartItemCount) {
+    return BottomAppBar(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => PosCartScreen(order: widget.order),
+            ));
+          },
+          icon: const Icon(Icons.shopping_cart_checkout),
+          label: const Text('Lihat Keranjang Validasi'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _navigateToSummary,
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-              child: const Text('Lanjutkan ke Ringkasan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

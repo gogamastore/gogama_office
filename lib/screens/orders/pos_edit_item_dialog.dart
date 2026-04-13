@@ -28,12 +28,15 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
   late final TextEditingController _quantityController;
   late final TextEditingController _priceController;
   Future<Map<String, dynamic>?>? _productDataFuture;
+  late int _quantity;
 
   @override
   void initState() {
     super.initState();
-    _quantityController = TextEditingController(text: widget.product.quantity.toString());
-    _priceController = TextEditingController(text: widget.product.price.toStringAsFixed(0));
+    _quantity = widget.product.quantity;
+    _quantityController = TextEditingController(text: _quantity.toString());
+    _priceController =
+        TextEditingController(text: widget.product.price.toStringAsFixed(0));
     _productDataFuture = _fetchProductData(widget.product.productId);
   }
 
@@ -46,9 +49,12 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
 
   Future<Map<String, dynamic>?> _fetchProductData(String productId) async {
     try {
-      final productDoc = await FirebaseFirestore.instance.collection('products').doc(productId).get();
+      final productDoc = await FirebaseFirestore.instance
+          .collection('products')
+          .doc(productId)
+          .get();
       if (!productDoc.exists) throw Exception('Produk tidak ditemukan.');
-      
+
       final product = Product.fromFirestore(productDoc);
       double costPrice = product.purchasePrice ?? 0.0;
 
@@ -60,15 +66,14 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
           .get();
 
       if (historyQuery.docs.isNotEmpty) {
-        costPrice = parsePrice(historyQuery.docs.first.data()['price']); 
+        costPrice = parsePrice(historyQuery.docs.first.data()['price']);
       }
 
-      // PERBAIKAN: Gunakan query .where() untuk mencari promo berdasarkan field productId
       bool isPromo = false;
       final promoQuery = await FirebaseFirestore.instance
           .collection('promotions')
           .where('productId', isEqualTo: productId)
-          .limit(1) // Cukup 1 dokumen untuk konfirmasi
+          .limit(1)
           .get();
 
       if (promoQuery.docs.isNotEmpty) {
@@ -84,11 +89,25 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
 
   void _process(double costPrice) async {
     final newPrice = double.tryParse(_priceController.text) ?? 0.0;
-    final newQuantity = int.tryParse(_quantityController.text) ?? 0;
+    final newQuantity = _quantity; // --- FIX: Use state quantity
 
     if (newQuantity <= 0) {
-        Navigator.of(context).pop();
-        return;
+      // Opsi untuk menghapus item jika kuantitas 0
+      final bool? confirmRemove = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hapus Item?'),
+          content: const Text('Kuantitas adalah 0. Apakah Anda ingin menghapus item ini dari keranjang?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Batal')),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Hapus')),
+          ],
+        ),
+      );
+      if (confirmRemove == true) {
+         Navigator.of(context).pop(widget.product.copyWith(quantity: 0));
+      }
+      return;
     }
 
     if (newPrice < costPrice) {
@@ -99,8 +118,12 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
           content: Text(
               'Harga jual (${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(newPrice)}) di bawah harga modal (${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(costPrice)}). Apakah Anda yakin ingin melanjutkan?'),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Tidak')),
-            ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Ya, Yakin')),
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Tidak')),
+            ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Ya, Yakin')),
           ],
         ),
       );
@@ -116,20 +139,27 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final currencyFormatter =
+        NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: _productDataFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const AlertDialog(content: Center(child: CircularProgressIndicator()));
+          return const AlertDialog(
+              content: Center(child: CircularProgressIndicator()));
         }
 
         if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
           return AlertDialog(
             title: const Text('Error'),
-            content: const Text('Gagal memuat detail harga produk. Silakan coba lagi.'),
-            actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Tutup'))],
+            content: const Text(
+                'Gagal memuat detail harga produk. Silakan coba lagi.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Tutup'))
+            ],
           );
         }
 
@@ -141,10 +171,17 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(widget.product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+              Expanded(
+                  child: Text(widget.product.name,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold))),
               if (isPromo)
                 const Chip(
-                  label: Text('PROMO', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  label: Text('PROMO',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
                   backgroundColor: Colors.redAccent,
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   visualDensity: VisualDensity.compact,
@@ -158,23 +195,57 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
               children: [
                 Text('SKU: ${widget.product.sku}'),
                 const SizedBox(height: 8),
-                Text(
-                    'Harga Modal: ${currencyFormatter.format(costPrice)} ',
-                     style: TextStyle(fontSize: 12, color: Colors.grey.shade600)
+                Text('Harga Modal: ${currencyFormatter.format(costPrice)} ',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                const SizedBox(height: 24),
+                // --- FIX: ADD QUANTITY BUTTONS ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () {
+                        if (_quantity > 0) {
+                          setState(() {
+                            _quantity--;
+                            _quantityController.text = _quantity.toString();
+                          });
+                        }
+                      },
+                    ),
+                    SizedBox(
+                      width: 80,
+                      child: TextField(
+                        controller: _quantityController,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Jumlah', border: OutlineInputBorder()),
+                        onChanged: (value) {
+                          final newQuantity = int.tryParse(value);
+                          if (newQuantity != null && newQuantity >= 0) {
+                            _quantity = newQuantity;
+                          }
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () {
+                        setState(() {
+                          _quantity++;
+                          _quantityController.text = _quantity.toString();
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _quantityController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Jumlah Validasi',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                // --- END FIX ---
                 const SizedBox(height: 16),
                 TextField(
                   controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: 'Harga Jual Satuan',
                     prefixText: 'Rp ',
@@ -185,7 +256,9 @@ class _PosEditItemDialogState extends ConsumerState<PosEditItemDialog> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Batal')),
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Batal')),
             ElevatedButton(
               onPressed: () => _process(costPrice),
               child: const Text('Proses'),

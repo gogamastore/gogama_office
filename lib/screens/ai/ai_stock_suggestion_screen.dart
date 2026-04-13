@@ -87,7 +87,7 @@ class AiStockSuggestionScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: state.analysisPeriod ?? '30',
+              initialValue: state.analysisPeriod ?? '30',
               decoration: const InputDecoration(
                 labelText: 'Periode Analisis Penjualan',
                 border: OutlineInputBorder(),

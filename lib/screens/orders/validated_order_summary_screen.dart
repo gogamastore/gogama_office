@@ -11,13 +11,14 @@ import '../../models/staff_model.dart';
 import '../../providers/order_provider.dart';
 import '../../services/staff_service.dart';
 
+// --- PERUBAHAN PADA KONSTRUKTOR ---
 class ValidatedOrderSummaryScreen extends ConsumerStatefulWidget {
-  final Order originalOrder;
+  final String orderId;
   final List<OrderItem> validatedItems;
 
   const ValidatedOrderSummaryScreen({
     super.key,
-    required this.originalOrder,
+    required this.orderId,
     required this.validatedItems,
   });
 
@@ -32,7 +33,7 @@ class _ValidatedOrderSummaryScreenState
   String? _selectedAdminName;
   bool _isProcessing = false;
 
-  void _onConfirmAndProcess() async {
+  void _onConfirmAndProcess(Order originalOrder) async { // Menerima originalOrder sebagai argumen
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -42,14 +43,14 @@ class _ValidatedOrderSummaryScreenState
 
     final newSubtotal = widget.validatedItems
         .fold(0.0, (sum, item) => sum + (item.quantity * item.price));
-    final shippingCost = widget.originalOrder.shippingFee ?? 0;
+    final shippingCost = originalOrder.shippingFee ?? 0;
     final newGrandTotal = newSubtotal + shippingCost;
 
     final navigator = Navigator.of(context);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
-      final orderId = widget.originalOrder.id;
+      final orderId = widget.orderId;
       final orderNotifier = ref.read(orderProvider.notifier);
 
       final success = await orderNotifier.updateOrder(
@@ -63,10 +64,7 @@ class _ValidatedOrderSummaryScreenState
 
       if (success) {
         await ref.read(orderServiceProvider).updateOrderStatus(orderId, 'processing');
-
-        // --- FUNGSI BARU DITAMBAHKAN DI SINI ---
         await ref.read(orderServiceProvider).setValidationTimestamp(orderId);
-        // --- AKHIR FUNGSI BARU ---
 
         ref.invalidate(orderProvider);
         ref.invalidate(orderDetailsProvider(orderId));
@@ -132,135 +130,146 @@ class _ValidatedOrderSummaryScreenState
   Widget build(BuildContext context) {
     final currencyFormatter =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-
-    final newSubtotal = widget.validatedItems
-        .fold(0.0, (sum, item) => sum + (item.quantity * item.price));
-    final shippingCost = widget.originalOrder.shippingFee ?? 0;
-    final newGrandTotal = newSubtotal + shippingCost;
-
+    
+    final orderDetailsAsync = ref.watch(orderDetailsProvider(widget.orderId));
     final adminUsersAsyncValue = ref.watch(adminUsersProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ringkasan Pesanan Divalidasi'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Ringkasan Pesanan Baru',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Card(
-                elevation: 2,
-                margin: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Nomor Pesanan:', style: TextStyle(color: Colors.grey[600])),
-                            Text(widget.originalOrder.id,
-                                style:
-                                    const TextStyle(fontWeight: FontWeight.bold)),
-                          ]),
-                      const Divider(height: 24),
-                      
-                      SizedBox(
-                        height: 300,
-                        child: ListView.builder(
-                          itemCount: widget.validatedItems.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            final item = widget.validatedItems[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: ListTile(
-                                visualDensity: VisualDensity.compact,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                subtitle: Text(
-                                    '${item.quantity} x ${currencyFormatter.format(item.price)}'),
-                                trailing: Text(
-                                    currencyFormatter.format(item.quantity * item.price), style: const TextStyle(fontWeight: FontWeight.w500)),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
+      body: orderDetailsAsync.when(
+        data: (originalOrder) {
+          if (originalOrder == null) {
+            return const Center(child: Text("Detail pesanan tidak ditemukan."));
+          }
 
-                      const Divider(height: 24),
-                      _buildSummaryRow(title: 'Subtotal', amount: newSubtotal, formatter: currencyFormatter),
-                      const SizedBox(height: 8),
-                      _buildSummaryRow(title: 'Ongkos Kirim', amount: shippingCost.toDouble(), formatter: currencyFormatter),
-                      const Divider(),
-                      _buildSummaryRow(
-                        title: 'Grand Total',
-                        amount: newGrandTotal,
-                        formatter: currencyFormatter,
-                        isTotal: true,
-                      ),
-                    ],
+          final newSubtotal = widget.validatedItems
+              .fold(0.0, (sum, item) => sum + (item.quantity * item.price));
+          final shippingCost = originalOrder.shippingFee ?? 0;
+          final newGrandTotal = newSubtotal + shippingCost;
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Ringkasan Pesanan Baru',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              adminUsersAsyncValue.when(
-                data: (admins) => DropdownButtonFormField<String>(
-                  initialValue: _selectedAdminName,
-                  hint: const Text('Pilih nama...'),
-                  decoration: const InputDecoration(
-                    labelText: 'Di Validasi oleh',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: admins.map<DropdownMenuItem<String>>((Staff admin) {
-                    return DropdownMenuItem<String>(
-                      value: admin.name,
-                      child: Text(admin.name),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedAdminName = newValue;
-                    });
-                  },
-                  validator: (value) =>
-                      value == null || value.isEmpty ? 'Harap pilih nama validator' : null,
-                ),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text('Gagal memuat admin: $err')),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
+                  const SizedBox(height: 16),
+                  Card(
+                    elevation: 2,
+                    margin: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Nomor Pesanan:', style: TextStyle(color: Colors.grey[600])),
+                                Text(widget.orderId,
+                                    style:
+                                        const TextStyle(fontWeight: FontWeight.bold)),
+                              ]),
+                          const Divider(height: 24),
+                          
+                          SizedBox(
+                            height: 300,
+                            child: ListView.builder(
+                              itemCount: widget.validatedItems.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                final item = widget.validatedItems[index];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: ListTile(
+                                    visualDensity: VisualDensity.compact,
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    subtitle: Text(
+                                        '${item.quantity} x ${currencyFormatter.format(item.price)}'),
+                                    trailing: Text(
+                                        currencyFormatter.format(item.quantity * item.price), style: const TextStyle(fontWeight: FontWeight.w500)),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          const Divider(height: 24),
+                          _buildSummaryRow(title: 'Subtotal', amount: newSubtotal, formatter: currencyFormatter),
+                          const SizedBox(height: 8),
+                          _buildSummaryRow(title: 'Ongkos Kirim', amount: shippingCost.toDouble(), formatter: currencyFormatter),
+                          const Divider(),
+                          _buildSummaryRow(
+                            title: 'Grand Total',
+                            amount: newGrandTotal,
+                            formatter: currencyFormatter,
+                            isTotal: true,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  onPressed: _isProcessing ? null : _onConfirmAndProcess,
-                  child: _isProcessing
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                      : const Text('Proses Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+                  const SizedBox(height: 24),
+                  adminUsersAsyncValue.when(
+                    data: (admins) => DropdownButtonFormField<String>(
+                      initialValue: _selectedAdminName,
+                      hint: const Text('Pilih nama...'),
+                      decoration: const InputDecoration(
+                        labelText: 'Di Validasi oleh',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: admins.map<DropdownMenuItem<String>>((Staff admin) {
+                        return DropdownMenuItem<String>(
+                          value: admin.name,
+                          child: Text(admin.name),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedAdminName = newValue;
+                        });
+                      },
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Harap pilih nama validator' : null,
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, stack) => Center(child: Text('Gagal memuat admin: $err')),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _isProcessing ? null : () => _onConfirmAndProcess(originalOrder),
+                      child: _isProcessing
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                          : const Text('Proses Pesanan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
+            ),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Gagal memuat detail pesanan: $err')), 
+      )
     );
   }
 
